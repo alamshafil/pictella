@@ -26,7 +26,6 @@ class EditScreen extends StatefulWidget {
 
 class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   final TextEditingController _promptController = TextEditingController();
-  final FocusNode _promptFocusNode = FocusNode();
   bool _isLoading = false;
   String? _errorMessage;
   Uint8List? _originalImageBytes;
@@ -74,7 +73,6 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   void dispose() {
     _promptController.dispose();
     _animationController.dispose();
-    _promptFocusNode.dispose();
     super.dispose();
   }
 
@@ -655,7 +653,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           Padding(
             padding: const EdgeInsets.all(4),
             child: Container(
-              height: 70,
+              height: 50,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
@@ -663,8 +661,6 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
               ),
               child: TextField(
                 controller: _promptController,
-                focusNode: _promptFocusNode,
-                maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Example: Change the background to a beach sunset',
                   hintStyle: TextStyle(
@@ -672,18 +668,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                   ),
                   contentPadding: const EdgeInsets.all(10),
                   border: InputBorder.none,
-                  isDense: true,
                 ),
-                textInputAction: TextInputAction.newline,
-                keyboardType: TextInputType.multiline,
-                onTap: () {
-                  if (!_promptFocusNode.hasFocus) {
-                    _promptFocusNode.requestFocus();
-                  }
-                },
-                onEditingComplete: () {
-                  _promptFocusNode.unfocus();
-                },
               ),
             ),
           ),
