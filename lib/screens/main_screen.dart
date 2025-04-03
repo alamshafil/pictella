@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../components/bottom_nav_bar.dart';
+import 'package:image_app/components/bottom_nav_bar.dart';
 import 'dashboard_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';

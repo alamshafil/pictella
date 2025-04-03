@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../utils/app_settings.dart';
+import 'package:flutter/material.dart';
+import 'package:image_app/utils/app_settings.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -41,7 +41,10 @@ class CustomBottomNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.grey.shade900.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),

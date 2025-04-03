@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_app/components/glass_button.dart';
+import 'package:image_app/utils/app_preferences.dart';
 import 'api_key_screen.dart';
-import '../components/glass_button.dart';
-import '../utils/app_preferences.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});

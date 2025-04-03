@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../utils/app_settings.dart';
+import 'package:flutter/material.dart';
+import 'package:image_app/utils/app_settings.dart';
+import 'package:image_app/utils/log.dart';
 
 class GlassContainer extends StatelessWidget {
   final Widget child;
@@ -9,6 +10,8 @@ class GlassContainer extends StatelessWidget {
   final double? borderRadius;
   final Color? color;
   final double? blur;
+  final bool blurEnabled;
+  final VoidCallback? onTap;
 
   const GlassContainer({
     super.key,
@@ -18,13 +21,16 @@ class GlassContainer extends StatelessWidget {
     this.borderRadius = 12,
     this.color,
     this.blur = 5,
+    this.blurEnabled = true,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final blurEnabled = AppSettings.instance.blurEffectsEnabled;
+    var blurEnabled = AppSettings.instance.blurEffectsEnabled;
+    if (!this.blurEnabled) blurEnabled = this.blurEnabled;
 
-    return Container(
+    Widget content = Container(
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius!),
@@ -52,5 +58,16 @@ class GlassContainer extends StatelessWidget {
                 : Padding(padding: padding!, child: child),
       ),
     );
+
+    return onTap != null
+        ? Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(borderRadius!),
+            child: content,
+          ),
+        )
+        : content;
   }
 }

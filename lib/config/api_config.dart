@@ -1,4 +1,4 @@
-import '../utils/app_preferences.dart';
+import 'package:image_app/utils/app_preferences.dart';
 
 class ApiConfig {
   // Method to get the stored API key

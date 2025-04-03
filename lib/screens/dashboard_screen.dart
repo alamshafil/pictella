@@ -1,13 +1,22 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_app/components/glass_container.dart';
+import 'package:image_app/components/flexible_dialog.dart';
+import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/screens/prompts_screen.dart';
+import 'package:image_app/screens/search_screen.dart';
+import 'package:image_app/services/storage_service.dart';
+import 'package:image_app/utils/app_settings.dart';
 import 'dart:ui';
 import 'package:image_app/utils/log.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'result_screen.dart';
 import 'edit_screen.dart';
 import '../utils/app_settings.dart';
 import '../services/storage_service.dart';
 import '../models/edited_image.dart';
+import 'package:image_app/config/advanced_prompts.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool isInTabView;
@@ -64,11 +73,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoadingImages = true;
       });
 
-      // Copy the picked image to permanent storage
+      // Get the picked image path - but don't copy it yet
       final String pickedPath = pickedFile.path;
-      final String permanentPath = await StorageService.copyImageToStorage(
-        pickedPath,
-      );
 
       setState(() {
         _isLoadingImages = false;
@@ -76,17 +82,15 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       // Debug
       printDebug('📷 Picked image path: $pickedPath');
-      printDebug('📷 Permanent image path: $permanentPath');
 
       if (!mounted) return;
 
-      // Navigate to EditScreen with the permanent path
+      // Navigate to EditScreen with the temporary path and isTemporaryPath flag
       Navigator.push(
         context,
         MaterialPageRoute(
           builder:
-              (context) =>
-                  EditScreen(imageUrl: permanentPath, previousPrompt: ''),
+              (context) => EditScreen(imageUrl: pickedPath, previousPrompt: ''),
         ),
       ).then((_) => _loadSavedImages()); // Refresh the list when returning
     } catch (e) {
@@ -125,33 +129,27 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Method to show image source selection dialog
   void _showImageSourceDialog() {
-    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
-
-    showDialog(
+    FlexibleDialog.showImageSource(
       context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child:
-                blurEffectsEnabled
-                    ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: _buildDialogContent(context),
-                    )
-                    : _buildDialogContent(context),
-          ),
-        );
+      onSourceSelected: (source) {
+        if (source == ImageSource.camera) {
+          _pickImage(ImageSource.camera);
+        } else {
+          _pickImage(ImageSource.gallery);
+        }
       },
+      title: 'Select Image Source',
+      message: 'Choose how you want to upload your image',
     );
   }
 
   Widget _buildDialogContent(BuildContext context) {
+    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.20),
+        color: Colors.white.withValues(alpha: blurEffectsEnabled ? 0.15 : 0.25),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.2),
@@ -224,8 +222,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
-
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -240,13 +236,6 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
           ),
-
-          // Frosted glass effect - only if blur is enabled
-          if (blurEffectsEnabled)
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.05)),
-            ),
 
           // Content
           SafeArea(
@@ -270,7 +259,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 25),
 
                         // Editing Features Section
-                        _buildSectionHeader('Editing Features'),
+                        _buildSectionHeader(
+                          'Editing Prompts',
+                          Icons.edit,
+                          onActionPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => const AdvancedPromptsScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
                         const SizedBox(height: 10),
 
@@ -279,7 +280,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 25),
 
                         // Recently Edited Section
-                        _buildSectionHeader('Recently Edited'),
+                        _buildSectionHeader(
+                          'Recently Edited',
+                          Icons.history,
+                          onActionPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SearchScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
                         const SizedBox(height: 10),
 
@@ -366,7 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             color: Colors.white.withValues(alpha: 0.12),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.3),
-              width: 1.5,
+              width: 2,
             ),
             boxShadow: [
               BoxShadow(
@@ -387,8 +399,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'Upload a photo to edit',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white.withValues(alpha: 0.8),
                 ),
               ),
@@ -399,72 +411,187 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white.withValues(alpha: 0.9),
+  Widget _buildSectionHeader(
+    String title,
+    IconData? icon, {
+    VoidCallback? onActionPressed,
+  }) {
+    return Row(
+      children: [
+        if (icon != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 8),
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: 0.9),
+              size: 24,
+            ),
+          ),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
         ),
-      ),
+        if (onActionPressed != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_forward,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: 20,
+              ),
+              onPressed: onActionPressed,
+              tooltip: 'View all',
+              constraints: const BoxConstraints(),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildHorizontalFeaturesList(BuildContext context) {
-    final features = [
-      {'icon': Icons.person_add, 'name': 'Add People'},
-      {'icon': Icons.remove_circle_outline, 'name': 'Remove Objects'},
-      {'icon': Icons.style, 'name': 'Change Style'},
-      {'icon': Icons.landscape, 'name': 'Change Background'},
-      {'icon': Icons.auto_fix_high, 'name': 'Enhanced'},
-    ];
+    final displayedPrompts = advancedPrompts.take(10).toList();
 
-    return SizedBox(
-      height: 130,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        scrollDirection: Axis.horizontal,
-        itemCount: features.length,
-        itemBuilder: (context, index) {
-          return GestureDetector(
-            onTap: () {
-              // Feature selection logic
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              width: 110,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    features[index]['icon'] as IconData,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    features[index]['name'] as String,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
-                  ),
+    return Column(
+      children: [
+        SizedBox(
+          height: 130,
+          child: ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.0),
+                  Colors.white,
+                  Colors.white,
+                  Colors.white.withValues(alpha: 0.0),
                 ],
-              ),
+                stops: const [0.0, 0.05, 0.95, 1.0],
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.dstIn,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              scrollDirection: Axis.horizontal,
+              itemCount: displayedPrompts.length,
+              itemBuilder: (context, index) {
+                final prompt = displayedPrompts[index];
+                return GestureDetector(
+                  onTap: () => _showImageSourceWithPrompt(prompt),
+                  child: GlassContainer(
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    blurEnabled: false,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: prompt.accentColor.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            prompt.icon,
+                            color: prompt.accentColor,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(prompt.title, textAlign: TextAlign.center),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
+  }
+
+  void _showImageSourceWithPrompt(AdvancedPrompt prompt) {
+    FlexibleDialog.showCustomDialog(
+      context: context,
+      icon: prompt.icon,
+      iconColor: prompt.accentColor,
+      title: prompt.title,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            prompt.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildSourceOptionForPrompt(
+                icon: Icons.camera_alt,
+                label: 'Camera',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageWithPrompt(ImageSource.camera, prompt);
+                },
+              ),
+              const SizedBox(width: 20),
+              _buildSourceOptionForPrompt(
+                icon: Icons.photo_library,
+                label: 'Gallery',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageWithPrompt(ImageSource.gallery, prompt);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close),
+          label: const Text('Close'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            side: BorderSide(color: Colors.white.withOpacity(0.3)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickImageWithPrompt(
+    ImageSource source,
+    AdvancedPrompt prompt,
+  ) async {
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      maxWidth: 1800,
+      maxHeight: 1800,
+      imageQuality: 90,
+    );
+
+    if (pickedFile == null || !mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => EditScreen(
+              imageUrl: pickedFile.path,
+              previousPrompt: prompt.prompt,
+            ),
+      ),
+    ).then((_) => _loadSavedImages());
   }
 
   Widget _buildRecentlyEditedList() {
@@ -511,152 +638,251 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
 
-    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
-
-    // Modified to work within SingleChildScrollView
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      itemCount: _savedImages.length,
-      itemBuilder: (context, index) {
-        final editedImage = _savedImages[index];
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => ResultScreen(
-                      editedImage: editedImage,
-                      heroTagPrefix: 'dashboard_', // Add this parameter
-                    ),
-              ),
-            ).then((_) => _loadSavedImages()); // Refresh list when returning
+    // Horizontal scrolling list with faded edges
+    return SizedBox(
+      height: 220, // Adjust height as needed
+      child: ShaderMask(
+        shaderCallback: (bounds) {
+          return LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.0),
+              Colors.white,
+              Colors.white,
+              Colors.white.withValues(alpha: 0.0),
+            ],
+            stops: const [0.0, 0.05, 0.95, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          scrollDirection: Axis.horizontal,
+          itemCount: _savedImages.length,
+          itemBuilder: (context, index) {
+            final editedImage = _savedImages[index];
+            return _buildImageGridItem(editedImage);
           },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 15),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child:
-                  blurEffectsEnabled
-                      ? BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                        child: _buildEditItemContainer(editedImage),
-                      )
-                      : _buildEditItemContainer(editedImage),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildEditItemContainer(EditedImage editedImage) {
-    return FutureBuilder<Uint8List?>(
-      future: StorageService.loadImageBytes(editedImage.localPath),
-      builder: (context, snapshot) {
-        final imageData = snapshot.data;
-        final hasImage =
-            snapshot.connectionState == ConnectionState.done &&
-            imageData != null;
+  Widget _buildImageGridItem(EditedImage image) {
+    // Pre-load the image to avoid flashing during Hero transitions
+    final Future<Uint8List?> imageFuture = StorageService.loadImageBytes(
+      image.localPath,
+    );
 
-        return Container(
-          height: 110,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white.withValues(alpha: 0.05),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 6,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // The Hero widget with proper tag and image
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ResultScreen(
+                  editedImage: image,
+                  heroTagPrefix: 'dashboard_',
                 ),
-                child: SizedBox(
-                  width: 80,
-                  height: 110,
-                  child: Hero(
-                    tag:
-                        'dashboard_image_${editedImage.id}', // Updated hero tag with prefix
-                    child: Material(
-                      color: Colors.transparent,
-                      child:
-                          hasImage
-                              ? Image.memory(
-                                imageData,
-                                fit: BoxFit.cover,
-                                width: 80,
-                                height: double.infinity,
-                                gaplessPlayback: true,
-                                cacheWidth:
-                                    160, // Cache image for smoother transitions
-                              )
-                              : Container(
-                                width: 80,
-                                color: Colors.grey[800],
-                                child: const Icon(
-                                  Icons.image,
-                                  color: Colors.white70,
-                                ),
+          ),
+        ).then((_) => _loadSavedImages());
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Improved thumbnail with Hero and optimized image loading
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                child: Hero(
+                  tag: 'dashboard_image_${image.id}',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: FutureBuilder<Uint8List?>(
+                      future: imageFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.data != null) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            gaplessPlayback: true, // Prevent image flickering
+                            frameBuilder: (
+                              context,
+                              child,
+                              frame,
+                              wasSynchronouslyLoaded,
+                            ) {
+                              // Use a fade transition if the image wasn't loaded immediately
+                              return frame == null
+                                  ? Container(
+                                    color: Colors.grey[800],
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  : child;
+                            },
+                          );
+                        }
+                        // Show loading indicator with same background as the loaded image container
+                        return Container(
+                          color: Colors.grey[800],
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white.withOpacity(0.7),
                               ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
+                  flightShuttleBuilder: (
+                    BuildContext flightContext,
+                    Animation<double> animation,
+                    HeroFlightDirection flightDirection,
+                    BuildContext fromHeroContext,
+                    BuildContext toHeroContext,
+                  ) {
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, child) {
+                        return Material(
+                          color: Colors.transparent,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                            child: FutureBuilder<Uint8List?>(
+                              future: imageFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                        ConnectionState.done &&
+                                    snapshot.data != null) {
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    gaplessPlayback: true,
+                                  );
+                                }
+                                return Container(
+                                  color: Colors.grey[800],
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        editedImage.timestamp.toString().substring(0, 16),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        editedImage.prompt,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        editedImage.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+            ),
+
+            // Details
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    image.prompt,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('MMM dd, h:mma').format(image.timestamp),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSourceOptionForPrompt({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+                color: Colors.white.withOpacity(0.1),
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

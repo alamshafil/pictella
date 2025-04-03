@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../components/glass_button.dart';
-import '../components/glass_container.dart';
-import '../utils/app_preferences.dart';
+import 'package:image_app/components/glass_button.dart';
+import 'package:image_app/components/glass_container.dart';
+import 'package:image_app/utils/app_preferences.dart';
 import 'main_screen.dart';
 
 class ApiKeyScreen extends StatefulWidget {

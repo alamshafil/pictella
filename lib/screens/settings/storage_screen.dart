@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'dart:typed_data';
-import '../../models/edited_image.dart';
-import '../../services/storage_service.dart';
-import '../../utils/app_settings.dart';
-import '../../utils/app_preferences.dart';
-import '../../utils/log.dart';
-import '../result_screen.dart';
-import '../welcome_screen.dart';
+import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/screens/result_screen.dart';
+import 'package:image_app/screens/welcome_screen.dart';
+import 'package:image_app/services/storage_service.dart';
+import 'package:image_app/utils/app_preferences.dart';
+import 'package:image_app/utils/app_settings.dart';
+import 'package:image_app/utils/log.dart';
 
 class StorageManagementScreen extends StatefulWidget {
   const StorageManagementScreen({super.key});
@@ -393,8 +392,6 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -408,7 +405,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
       ),
       body: Stack(
         children: [
-          // Background
+          // Background gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -419,14 +416,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
             ),
           ),
 
-          // Frosted glass effect - only if blur is enabled
-          if (blurEffectsEnabled)
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.05)),
-            ),
-
-          // Content
+          // Content - no global BackdropFilter
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : SafeArea(
@@ -659,6 +649,8 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
   }
 
   Widget _buildImageListItem(EditedImage image) {
+    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
+
     return Dismissible(
       key: Key(image.id),
       background: Container(
@@ -699,7 +691,9 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: Colors.white.withValues(
+            alpha: blurEffectsEnabled ? 0.08 : 0.12,
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),

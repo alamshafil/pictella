@@ -3,12 +3,15 @@ import 'dart:ui';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:google_fonts/google_fonts.dart';
-import '../components/glass_container.dart';
-import '../components/glass_button.dart';
-import '../services/gemini_api_service.dart';
-import 'result_screen.dart';
-import '../services/storage_service.dart';
+import 'package:image_app/components/glass_button.dart';
+import 'package:image_app/components/flexible_dialog.dart';
+import 'package:image_app/screens/prompts_screen.dart';
+import 'package:image_app/screens/image_viewer.dart';
+import 'package:image_app/screens/result_screen.dart';
+import 'package:image_app/services/gemini_api_service.dart';
+import 'package:image_app/services/storage_service.dart';
+import 'package:image_app/config/advanced_prompts.dart';
+import 'package:shimmer/shimmer.dart';
 
 class EditScreen extends StatefulWidget {
   final String imageUrl;
@@ -28,7 +31,30 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   final TextEditingController _promptController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+
   Uint8List? _originalImageBytes;
+  bool _isOriginalSizeFit = false;
+
+  // Advanced options
+  bool _showAdvancedOptions = false;
+  bool _enhancedThinkingEnabled = false;
+  double _temperature = 0.7;
+
+  // AI Model selection
+  String _selectedAIModel = "Gemini 2.0 Flash"; // Default model
+  final List<String> _availableAIModels = [
+    "Gemini 2.0 Flash",
+    "GPT-4o",
+    "DeepSeek v3",
+  ];
+
+  // Bottom sheet configuration
+  bool _isBottomSheetExpanded = true;
+  final double _collapsedBottomSheetHeight =
+      70.0; // Slightly reduced height when collapsed
+  final double _expandedBottomSheetHeight = 320.0; // Height when expanded
+  late AnimationController _bottomSheetAnimationController;
+  late Animation<double> _bottomSheetHeightAnimation;
 
   // List to store edit history
   final List<Map<String, dynamic>> _editHistory = [];
@@ -39,16 +65,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   late Animation<double> _animation;
 
   // Suggestions with icons
-  final List<Map<String, dynamic>> _suggestions = [
-    {'icon': Icons.beach_access, 'text': 'Change background to beach'},
-    {'icon': Icons.wb_sunny, 'text': 'Make it look like sunset'},
-    {'icon': Icons.pets, 'text': 'Add a dog next to subject'},
-    {'icon': Icons.animation, 'text': 'Convert to anime style'},
-    {'icon': Icons.business, 'text': 'Make it look professional'},
-    {'icon': Icons.brightness_5, 'text': 'Make it brighter'},
-    {'icon': Icons.remove_circle_outline, 'text': 'Remove background objects'},
-    {'icon': Icons.color_lens, 'text': 'Add vintage filter'},
-  ];
+  final List<AdvancedPrompt> _suggestions = advancedPrompts;
 
   @override
   void initState() {
@@ -57,7 +74,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       _promptController.text = widget.previousPrompt;
     }
 
-    // Initialize animation controller
+    // Initialize animation controller for image transitions
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -66,6 +83,29 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+
+    // Initialize bottom sheet animation controller
+    _bottomSheetAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    // Animation for bottom sheet height
+    _bottomSheetHeightAnimation = Tween<double>(
+      begin: _collapsedBottomSheetHeight,
+      end: _expandedBottomSheetHeight,
+    ).animate(
+      CurvedAnimation(
+        parent: _bottomSheetAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // Animation for image area scaling
+
+    // Start with expanded bottom sheet
+    _bottomSheetAnimationController.value = 1.0;
+
     _loadOriginalImage();
   }
 
@@ -73,6 +113,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   void dispose() {
     _promptController.dispose();
     _animationController.dispose();
+    _bottomSheetAnimationController.dispose();
     super.dispose();
   }
 
@@ -140,10 +181,18 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     });
 
     try {
-      // Call the Gemini API service
+      // Format the prompt based on enhanced thinking mode
+      String formattedPrompt = _promptController.text;
+      if (_enhancedThinkingEnabled) {
+        formattedPrompt =
+            "${_promptController.text}. First, describe this image. Then, describe the new image you will create. Then generate it.";
+      }
+
+      // Call the Gemini API service with selected model
       final base64GeneratedImage = await GeminiApiService.editImage(
         imageData: sourceImageBytes,
-        prompt: _promptController.text,
+        prompt: formattedPrompt,
+        // model: _selectedAIModel, // Pass the selected model
       );
 
       // Convert base64 back to image bytes
@@ -220,8 +269,79 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     }
   }
 
+  // Smooth toggle for bottom sheet with proper animations
+  void _toggleBottomSheet() {
+    if (_isBottomSheetExpanded) {
+      // Collapsing
+      _bottomSheetAnimationController.reverse().then((_) {
+        setState(() {
+          _isBottomSheetExpanded = false;
+        });
+      });
+    } else {
+      // Expanding
+      setState(() {
+        _isBottomSheetExpanded = true;
+      });
+      _bottomSheetAnimationController.forward();
+    }
+  }
+
+  void _showConfirmAdvancedEditDialog(AdvancedPrompt prompt) {
+    FlexibleDialog.showConfirmation(
+      context: context,
+      title: prompt.title,
+      message: prompt.description,
+      icon: prompt.icon,
+      iconColor: prompt.accentColor,
+      confirmText: 'Apply Edit',
+      cancelText: 'Cancel',
+      onConfirm: () {
+        _promptController.text = prompt.prompt;
+        _saveCurrentEdit();
+      },
+    );
+  }
+
+  // Check if bottom sheet animation is at either end
+  bool _isBottomSheetAnimationCompleted() {
+    return _bottomSheetAnimationController.status ==
+            AnimationStatus.completed ||
+        _bottomSheetAnimationController.status == AnimationStatus.dismissed;
+  }
+
+  // Content to show during animation between states
+  Widget _buildAnimatingBottomSheetContent() {
+    // Calculate the available height during animation
+    final double availableHeight = _bottomSheetHeightAnimation.value;
+
+    // Dynamically determine which content to show and how to limit its height
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: SizedBox(
+        height: availableHeight, // Explicitly constrain the height
+        child:
+            _bottomSheetAnimationController.value > 0.5
+                ? Opacity(
+                  opacity: (_bottomSheetAnimationController.value - 0.5) * 2,
+                  child: _buildExpandedBottomSheetContent(),
+                )
+                : Opacity(
+                  opacity: (0.5 - _bottomSheetAnimationController.value) * 2,
+                  child: _buildCollapsedBottomSheetContent(),
+                ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Calculate available height for image display
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final double appBarHeight = AppBar().preferredSize.height;
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -233,10 +353,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         ),
         title: Text(
           'Edit Image',
-          style: GoogleFonts.albertSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
       ),
@@ -245,47 +362,83 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           // Blurred background using the current image being edited
           _buildBackgroundBlur(),
 
-          // Content
-          SafeArea(
-            child: Column(
-              children: [
-                // Image Display with Carousel
-                Expanded(
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
+          // Main content with animated layout
+          AnimatedBuilder(
+            animation: _bottomSheetAnimationController,
+            builder: (context, child) {
+              final double currentBottomSheetHeight =
+                  _bottomSheetHeightAnimation.value;
+              final double imageAreaHeight =
+                  screenHeight -
+                  appBarHeight -
+                  statusBarHeight -
+                  currentBottomSheetHeight -
+                  bottomPadding;
+
+              return Stack(
+                children: [
+                  // Image area - expands and contracts with animation
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: imageAreaHeight + statusBarHeight + appBarHeight,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Center(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          child: _buildImageCarousel(),
+                        ),
                       ),
-                      child: _buildImageCarousel(),
                     ),
                   ),
-                ),
 
-                // Edit Control Section
-                _buildEditControls(),
-              ],
-            ),
-          ),
-
-          // Loading Overlay
-          if (_isLoading)
-            Container(
-              color: Colors.black.withValues(alpha: 0.7),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Processing your request...',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+                  // Bottom sheet - fixed at bottom
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: currentBottomSheetHeight + bottomPadding,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                        border: Border(
+                          top: BorderSide(
+                            width: 1.8,
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: bottomPadding),
+                            child:
+                                _isBottomSheetAnimationCompleted()
+                                    ? (_isBottomSheetExpanded
+                                        ? _buildExpandedBottomSheetContent()
+                                        : _buildCollapsedBottomSheetContent())
+                                    : _buildAnimatingBottomSheetContent(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -306,8 +459,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF01579B).withValues(alpha: 0.8),
-              Colors.black.withValues(alpha: 0.8),
+              const Color(0xFF01579B).withOpacity(0.8),
+              Colors.black.withOpacity(0.8),
             ],
           ),
         ),
@@ -323,17 +476,19 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           fit: BoxFit.cover,
         ),
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.2),
-                Colors.black.withValues(alpha: 0.6),
-              ],
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.2),
+                  Colors.black.withOpacity(0.6),
+                ],
+              ),
             ),
           ),
         ),
@@ -349,34 +504,105 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           child: AnimatedBuilder(
             animation: _animation,
             builder: (context, child) {
-              return AnimatedOpacity(
-                opacity: _isLoading ? 0.5 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
+              return Center(
+                child: AnimatedOpacity(
+                  opacity: _isLoading ? 0.7 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.4),
+                              blurRadius: 15,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Stack(
+                            children: [
+                              _buildCurrentImageDisplay(),
+                              if (_isLoading)
+                                Positioned.fill(
+                                  child: Shimmer.fromColors(
+                                    baseColor: Colors.black45,
+                                    highlightColor: Colors.black26,
+                                    child: Container(color: Colors.white),
+                                  ),
+                                ),
+                              if (_isLoading)
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black87,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Generating your edit...',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Control buttons
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: Row(
+                          children: [
+                            // Fit to original size button
+                            _buildControlButton(
+                              icon:
+                                  _isOriginalSizeFit
+                                      ? Icons.fit_screen
+                                      : Icons.fullscreen,
+                              onPressed: () {
+                                setState(() {
+                                  _isOriginalSizeFit = !_isOriginalSizeFit;
+                                });
+                              },
+                              tooltip:
+                                  _isOriginalSizeFit
+                                      ? 'Container fit'
+                                      : 'Original size',
+                            ),
+
+                            const SizedBox(width: 8),
+                            // Fullscreen preview button
+                            _buildControlButton(
+                              icon: Icons.open_in_full,
+                              onPressed: _openFullscreenPreview,
+                              tooltip: 'Fullscreen preview',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: _buildCurrentImageDisplay(),
                   ),
                 ),
               );
             },
           ),
         ),
-
         // Edit history carousel with fading edges
         if (_editHistory.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -388,10 +614,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Colors.black.withValues(alpha: 0),
+                    Colors.black.withOpacity(0),
                     Colors.black,
                     Colors.black,
-                    Colors.black.withValues(alpha: 0),
+                    Colors.black.withOpacity(0),
                   ],
                   stops: const [0.0, 0.1, 0.9, 1.0],
                 ).createShader(bounds);
@@ -405,8 +631,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                 itemBuilder: (context, index) {
                   bool isSelected = index == _currentEditIndex + 1;
 
-                  // Original image thumbnail
                   if (index == 0) {
+                    // Original image thumbnail
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -426,14 +652,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                             color:
                                 isSelected
                                     ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.3),
+                                    : Colors.white.withOpacity(0.3),
                             width: isSelected ? 2 : 1,
                           ),
                           boxShadow:
                               isSelected
                                   ? [
                                     BoxShadow(
-                                      color: Colors.blue.withValues(alpha: 0.5),
+                                      color: Colors.blue.withOpacity(0.5),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     ),
@@ -461,7 +687,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
+                                    color: Colors.black.withOpacity(0.6),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -498,14 +724,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                           color:
                               isSelected
                                   ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.3),
+                                  : Colors.white.withOpacity(0.3),
                           width: isSelected ? 2 : 1,
                         ),
                         boxShadow:
                             isSelected
                                 ? [
                                   BoxShadow(
-                                    color: Colors.blue.withValues(alpha: 0.5),
+                                    color: Colors.blue.withOpacity(0.5),
                                     blurRadius: 8,
                                     spreadRadius: 1,
                                   ),
@@ -531,7 +757,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                               child: Container(
                                 padding: const EdgeInsets.all(2),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
+                                  color: Colors.black.withOpacity(0.6),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -556,51 +782,76 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
 
   Widget _buildCurrentImageDisplay() {
     // Show current image (either original or from edit history)
+    Widget imageWidget;
+
     if (_currentEditIndex >= 0 && _currentEditIndex < _editHistory.length) {
       // Show selected edit from history
-      return FadeTransition(
-        opacity: _animation,
-        child: Image.memory(
-          _editHistory[_currentEditIndex]['imageBytes'],
-          fit: BoxFit.cover,
+      imageWidget = GestureDetector(
+        onTap: _openFullscreenPreview,
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: FadeTransition(
+            opacity: _animation,
+            child: Image.memory(
+              _editHistory[_currentEditIndex]['imageBytes'],
+              fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+            ),
+          ),
         ),
       );
     } else if (_originalImageBytes != null) {
       // Show original image from memory
-      return Image.memory(_originalImageBytes!, fit: BoxFit.cover);
+      imageWidget = GestureDetector(
+        onTap: _openFullscreenPreview,
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Image.memory(
+            _originalImageBytes!,
+            fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+          ),
+        ),
+      );
     } else {
       // Fallback - try to load from path
       return widget.imageUrl.startsWith('/')
-          ? Image.file(
-            File(widget.imageUrl),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  size: 64,
-                ),
-              );
-            },
+          ? GestureDetector(
+            onTap: _openFullscreenPreview,
+            child: Image.file(
+              File(widget.imageUrl),
+              fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    color: Colors.white.withOpacity(0.6),
+                    size: 64,
+                  ),
+                );
+              },
+            ),
           )
           : FutureBuilder<String>(
             future: StorageService.getAbsolutePath(widget.imageUrl),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done &&
                   snapshot.hasData) {
-                return Image.file(
-                  File(snapshot.data!),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Icon(
-                        Icons.broken_image,
-                        color: Colors.white.withValues(alpha: 0.6),
-                        size: 64,
-                      ),
-                    );
-                  },
+                return GestureDetector(
+                  onTap: _openFullscreenPreview,
+                  child: Image.file(
+                    File(snapshot.data!),
+                    fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white.withOpacity(0.6),
+                          size: 64,
+                        ),
+                      );
+                    },
+                  ),
                 );
               } else {
                 return const Center(child: CircularProgressIndicator());
@@ -608,215 +859,658 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             },
           );
     }
+
+    // Return the image with proper fit mode
+    return imageWidget;
   }
 
-  Widget _buildEditControls() {
-    return GlassContainer(
-      margin: const EdgeInsets.all(12),
-      borderRadius: 16,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+  // Method to handle fullscreen preview
+  void _openFullscreenPreview() {
+    if (_currentEditIndex >= 0 && _currentEditIndex < _editHistory.length) {
+      // Preview edited image
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => FullscreenImageViewer(
+                imageBytes: _editHistory[_currentEditIndex]['imageBytes'],
+                heroTag: 'preview_edit_$_currentEditIndex',
+                promptTitle: _editHistory[_currentEditIndex]['prompt'],
+              ),
+        ),
+      );
+    } else if (_originalImageBytes != null) {
+      // Preview original image
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => FullscreenImageViewer(
+                imageBytes: _originalImageBytes!,
+                heroTag: 'preview_original',
+                promptTitle: 'Original Image',
+              ),
+        ),
+      );
+    }
+  }
+
+  // Builds a control button with consistent styling
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 36,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        ),
+        child: IconButton(
+          icon: Icon(icon, color: Colors.white, size: 18),
+          onPressed: onPressed,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsedBottomSheetContent() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              children: [
-                Icon(
-                  _editHistory.isNotEmpty ? Icons.edit : Icons.draw,
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _editHistory.isNotEmpty
-                      ? 'Continue Editing'
-                      : 'Describe your edit',
-                ),
-              ],
-            ),
+          Icon(
+            _editHistory.isNotEmpty ? Icons.edit : Icons.draw,
+            color: Colors.white.withOpacity(0.9),
           ),
-
-          // Edit number indicator - only when needed
-          if (_editHistory.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  Icon(Icons.tag, color: Colors.white.withValues(alpha: 0.5)),
-                  const SizedBox(width: 4),
-                  Text('Edit #${_editHistory.length + 1}'),
-                ],
-              ),
-            ),
-
-          // Text input field
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: Container(
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-              ),
-              child: TextField(
-                controller: _promptController,
-                decoration: InputDecoration(
-                  hintText: 'Example: Change the background to a beach sunset',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                  contentPadding: const EdgeInsets.all(10),
-                  border: InputBorder.none,
-                ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _editHistory.isNotEmpty
+                  ? "Continue editing this image..."
+                  : "Describe how you want to edit...",
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white.withOpacity(0.9),
               ),
             ),
           ),
+          _buildExpandToggle(expanded: false),
+        ],
+      ),
+    );
+  }
 
-          // Error message - if needed
-          if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(fontSize: 14, color: Colors.redAccent),
-                    ),
-                  ),
-                ],
+  // The expanded version of the bottom sheet with scrollable content
+  Widget _buildExpandedBottomSheetContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header row with collapse button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          child: Row(
+            children: [
+              Icon(
+                _editHistory.isNotEmpty ? Icons.edit : Icons.draw,
+                color: Colors.white.withOpacity(0.9),
               ),
-            ),
-
-          SizedBox(height: 10), // Extra spacing
-          // Suggestions section
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, color: Colors.amber),
-                    const SizedBox(width: 6),
-                    Text('Suggestions'),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 36, // Fixed height for suggestions
-                  child: ShaderMask(
-                    shaderCallback: (bounds) {
-                      return LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.0),
-                          Colors.white,
-                          Colors.white,
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                        stops: const [0.0, 0.05, 0.95, 1.0],
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.dstIn,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: _suggestions.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onTap: () {
-                            _promptController.text =
-                                _suggestions[index]['text'];
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 5),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_suggestions[index]['icon'], size: 14),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _suggestions[index]['text'],
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              const SizedBox(width: 8),
+              Text(
+                _editHistory.isNotEmpty
+                    ? 'Continue Editing'
+                    : 'Describe your edit',
+                style: TextStyle(fontSize: 16),
+              ),
+              const Spacer(),
+              _buildExpandToggle(expanded: true),
+            ],
           ),
+        ),
 
-          // Action buttons - at the bottom with padding
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              height: 40,
-              child:
-                  _editHistory.isEmpty
-                      ? GlassButton(
-                        text: 'Generate Edit',
-                        onPressed: _saveCurrentEdit,
-                        fullWidth: true,
-                        fontSize: 14,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        icon: Icons.auto_fix_high,
-                      )
-                      : Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _finishEditing,
-                              icon: const Icon(Icons.check, size: 14),
-                              label: Text(
-                                'Finish',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                ),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: GlassButton(
-                              text: 'Apply Edit',
-                              onPressed: _saveCurrentEdit,
-                              fullWidth: true,
-                              fontSize: 13,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              icon: Icons.move_down,
-                            ),
-                          ),
-                        ],
-                      ),
+        // Scrollable content area
+        Expanded(child: _buildScrollableContent()),
+
+        // Action buttons at bottom
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: SizedBox(
+            height: 40,
+            child:
+                _editHistory.isEmpty
+                    ? _buildPrimaryButton(
+                      text: 'Generate Edit',
+                      onPressed: _saveCurrentEdit,
+                      icon: Icons.auto_fix_high,
+                    )
+                    : _buildActionButtonRow(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // UI Helper methods
+  Widget _buildExpandToggle({required bool expanded}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleBottomSheet,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(
+            expanded ? Icons.expand_more : Icons.expand_less,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScrollableContent() {
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withOpacity(0),
+            Colors.white,
+            Colors.white,
+            Colors.white.withOpacity(0),
+          ],
+          stops: const [0.0, 0.05, 0.95, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          spacing: 20,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_editHistory.isNotEmpty) _buildEditNumberIndicator(),
+            _buildPromptField(),
+            if (_errorMessage != null) _buildErrorMessage(),
+            _buildModelSelector(),
+            Divider(color: Colors.white.withOpacity(0.2)),
+            _buildAdvancedEditingSection(),
+            _buildAdvancedOptionsToggle(),
+            if (_showAdvancedOptions) _buildAdvancedOptionsContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditNumberIndicator() {
+    return Row(
+      children: [
+        Icon(Icons.tag, color: Colors.white.withOpacity(0.5)),
+        const SizedBox(width: 4),
+        Text('Edit #${_editHistory.length + 1}'),
+      ],
+    );
+  }
+
+  Widget _buildPromptField() {
+    return TextField(
+      controller: _promptController,
+      decoration: InputDecoration(
+        hintText: 'Example: Change the background to a beach sunset',
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.4)),
+        ),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.08),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(fontSize: 14, color: Colors.redAccent),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildModelSelector() {
+    return Row(
+      children: [
+        Icon(
+          Icons.auto_awesome,
+          color: Colors.purpleAccent.withOpacity(0.9),
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'AI Model',
+          style: TextStyle(fontSize: 15, color: Colors.white.withOpacity(0.9)),
+        ),
+        const Spacer(),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedAIModel,
+              isDense: true,
+              dropdownColor: Colors.black87,
+              icon: Icon(
+                Icons.arrow_drop_down,
+                color: Colors.white.withOpacity(0.7),
+              ),
+              items:
+                  _availableAIModels.map((String model) {
+                    return DropdownMenuItem<String>(
+                      value: model,
+                      child: Text(
+                        model,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedAIModel = newValue;
+                  });
+                }
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdvancedEditingSection() {
+    final displayedPrompts = _suggestions.take(10).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            _buildSectionHeader(
+              icon: Icons.lightbulb_outline,
+              text: 'Advanced Editing',
+              iconColor: Colors.amber,
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdvancedPromptsScreen(),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Text(
+                    'View All',
+                    style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100,
+          child: _buildHorizontalScrollableList(
+            itemCount: displayedPrompts.length,
+            itemBuilder: (context, index) {
+              final prompt = displayedPrompts[index];
+              return _buildSuggestionCard(prompt);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String text,
+    Color? iconColor,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.8)),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(fontSize: 15, color: Colors.white.withOpacity(0.9)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHorizontalScrollableList({
+    required int itemCount,
+    required Widget Function(BuildContext, int) itemBuilder,
+  }) {
+    return ShaderMask(
+      shaderCallback: (bounds) {
+        return LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.white.withOpacity(0.0),
+            Colors.white,
+            Colors.white,
+            Colors.white.withOpacity(0.0),
+          ],
+          stops: const [0.0, 0.05, 0.95, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: itemCount,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        itemBuilder: itemBuilder,
+      ),
+    );
+  }
+
+  Widget _buildSuggestionCard(AdvancedPrompt prompt) {
+    return GestureDetector(
+      onTap: () => _showConfirmAdvancedEditDialog(prompt),
+      child: Container(
+        width: 110,
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: prompt.accentColor.withOpacity(0.4),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(prompt.icon, color: prompt.accentColor, size: 22),
+            const SizedBox(height: 8),
+            Text(
+              prompt.title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.9),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdvancedOptionsToggle() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        setState(() {
+          _showAdvancedOptions = !_showAdvancedOptions;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.settings, color: Colors.white.withOpacity(0.8)),
+            const SizedBox(width: 6),
+            const Text(
+              'Advanced Options',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              _showAdvancedOptions
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              size: 16,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdvancedOptionsContent() {
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.white.withOpacity(0),
+            Colors.white,
+            Colors.white,
+            Colors.white.withOpacity(0),
+          ],
+          stops: const [0.0, 0.04, 0.96, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          spacing: 10,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildOptionContainer(child: _buildEnhancedThinkingToggle()),
+            _buildOptionContainer(child: _buildTemperatureControl()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionContainer({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildEnhancedThinkingToggle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.psychology,
+              color:
+                  _enhancedThinkingEnabled
+                      ? Colors.blueAccent
+                      : Colors.white.withOpacity(0.7),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Enhanced AI Thinking',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+            Switch(
+              value: _enhancedThinkingEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _enhancedThinkingEnabled = value;
+                });
+              },
+              activeColor: Colors.blueAccent,
+              inactiveTrackColor: Colors.white.withOpacity(0.2),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Analyzes image and plans changes before editing',
+          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTemperatureControl() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.thermostat, color: Colors.orangeAccent),
+            const SizedBox(width: 8),
+            Text(
+              'Temperature: ${_temperature.toStringAsFixed(1)}',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 2,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+          ),
+          child: Slider(
+            value: _temperature,
+            min: 0.0,
+            max: 1.0,
+            divisions: 10,
+            activeColor: Colors.orangeAccent,
+            inactiveColor: Colors.white.withOpacity(0.2),
+            onChanged: (value) {
+              setState(() => _temperature = value);
+            },
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          _temperature < 0.3
+              ? 'Lower: More predictable, consistent results'
+              : _temperature < 0.7
+              ? 'Medium: Balanced variations'
+              : 'Higher: More diverse, experimental outcomes',
+          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtonRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _finishEditing,
+            icon: const Icon(Icons.check, size: 14, color: Colors.white),
+            label: const Text(
+              'Finish',
+              style: TextStyle(fontSize: 13, color: Colors.white),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: BorderSide(color: Colors.white.withOpacity(0.3)),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildPrimaryButton(
+            text: 'Apply Edit',
+            onPressed: _saveCurrentEdit,
+            icon: Icons.move_down,
+            fontSize: 13,
+            iconSize: 16,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrimaryButton({
+    required String text,
+    required VoidCallback onPressed,
+    required IconData icon,
+    double fontSize = 14,
+    double iconSize = 18,
+  }) {
+    return GlassButton(
+      text: text,
+      onPressed: onPressed,
+      fullWidth: true,
+      fontSize: fontSize,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      icon: icon,
+      iconSize: iconSize,
+      textColor: Colors.white,
     );
   }
 }

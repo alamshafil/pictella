@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_app/utils/app_settings.dart';
 import 'dart:ui';
-import '../utils/app_settings.dart';
 import 'settings/about_screen.dart';
 import 'settings/storage_screen.dart';
 import 'settings/contact_screen.dart';
@@ -117,16 +117,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               ),
 
-                              // Blur effects switch
-                              _buildSwitchTile(
-                                icon: Icons.blur_on,
-                                title: 'Enable Blur Effects',
-                                subtitle:
-                                    'Apply glass blur effects throughout the app',
-                                value: blurEffectsEnabled,
-                                onChanged: _toggleBlurEffects,
-                              ),
-
                               // Storage Management
                               _buildSettingTile(
                                 context,
@@ -140,6 +130,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       builder:
                                           (context) =>
                                               const StorageManagementScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              // Blur effects switch
+                              _buildSwitchTile(
+                                icon: Icons.blur_on,
+                                title: 'Enable Blur Effects',
+                                subtitle:
+                                    'Apply glass blur effects throughout the app',
+                                value: blurEffectsEnabled,
+                                onChanged: _toggleBlurEffects,
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              _buildSettingCategory('Contact'),
+
+                              _buildSettingTile(
+                                context,
+                                icon: Icons.email_outlined,
+                                title: 'Contact Support',
+                                subtitle: 'Get help with the app',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const ContactScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              _buildSettingCategory('Legal'),
+
+                              _buildSettingTile(
+                                context,
+                                icon: Icons.description_outlined,
+                                title: 'Terms of Service',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const TermsScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              _buildSettingTile(
+                                context,
+                                icon: Icons.privacy_tip_outlined,
+                                title: 'Privacy Policy',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const PrivacyScreen(),
                                     ),
                                   );
                                 },
@@ -184,59 +237,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               context,
                                             ).colorScheme.primary,
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              _buildSettingCategory('Legal'),
-
-                              _buildSettingTile(
-                                context,
-                                icon: Icons.description_outlined,
-                                title: 'Terms of Service',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const TermsScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              _buildSettingTile(
-                                context,
-                                icon: Icons.privacy_tip_outlined,
-                                title: 'Privacy Policy',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => const PrivacyScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              _buildSettingCategory('Contact'),
-
-                              _buildSettingTile(
-                                context,
-                                icon: Icons.email_outlined,
-                                title: 'Contact Support',
-                                subtitle: 'Get help with the app',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => const ContactScreen(),
                                     ),
                                   );
                                 },

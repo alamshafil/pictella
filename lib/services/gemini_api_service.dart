@@ -4,9 +4,9 @@ import 'dart:math' as math;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_app/config/api_config.dart';
 import 'package:image_app/utils/log.dart';
 import 'dart:ui' as ui;
-import '../config/api_config.dart';
 
 class GeminiApiService {
   static const String _baseUrl =

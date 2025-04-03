@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/utils/log.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/edited_image.dart';
-import '../utils/log.dart';
 import 'package:path/path.dart' as path;
 
 class StorageService {
@@ -107,23 +107,27 @@ class StorageService {
       // Get the relative path for storage
       final relativePath = '$_imagesSubdirectory/$fileName';
 
-      // If originalImagePath is a full path, try to copy it to storage
-      String? relativeOriginalPath = originalImagePath;
-      if (originalImagePath != null &&
-          originalImagePath.startsWith('/') &&
-          !originalImagePath.startsWith(_originalImagesSubdirectory)) {
-        try {
-          // Check if the file exists before trying to copy it
-          final origFile = File(originalImagePath);
-          if (await origFile.exists()) {
-            relativeOriginalPath = await copyImageToStorage(originalImagePath);
-          } else {
-            relativeOriginalPath = null; // File doesn't exist anymore
+      // Handle the original image path
+      String? relativeOriginalPath;
+
+      if (originalImagePath != null) {
+        if (originalImagePath.startsWith('/') &&
+            !originalImagePath.startsWith(_originalImagesSubdirectory)) {
+          // This is a full path but not temporary (from previous version compatibility)
+          try {
+            final origFile = File(originalImagePath);
+            if (await origFile.exists()) {
+              relativeOriginalPath = await copyImageToStorage(
+                originalImagePath,
+              );
+            }
+          } catch (e) {
+            printDebug('⚠️ Could not copy original image: $e');
+            relativeOriginalPath = null;
           }
-        } catch (e) {
-          // If there's an error copying, set to null rather than failing the whole operation
-          printDebug('⚠️ Could not copy original image: $e');
-          relativeOriginalPath = null;
+        } else {
+          // Already a relative path, just use it
+          relativeOriginalPath = originalImagePath;
         }
       }
 
@@ -149,7 +153,7 @@ class StorageService {
       );
       printDebug('   - Path: $filePath');
       printDebug('   - Relative Path: $relativePath');
-      printDebug('   - Original image: ${originalImagePath ?? "None"}');
+      printDebug('   - Original image: ${relativeOriginalPath ?? "None"}');
 
       return editedImage;
     } catch (e) {

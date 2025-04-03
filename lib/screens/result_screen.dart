@@ -1,18 +1,23 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:typed_data';
-import '../components/glass_button.dart';
-import '../components/glass_container.dart';
-import '../models/edited_image.dart';
-import '../services/storage_service.dart';
+import 'package:flutter/material.dart';
 import 'edit_screen.dart';
 import 'main_screen.dart';
+import 'image_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
-import '../utils/log.dart';
-import 'image_viewer.dart';
+import 'package:before_after/before_after.dart';
+import 'package:image_app/components/glass_button.dart';
+import 'package:image_app/components/glass_container.dart';
+import 'package:image_app/components/flexible_dialog.dart';
+import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/services/storage_service.dart';
+import 'package:image_app/utils/log.dart';
+
+// Add an enum for comparison modes
+enum ComparisonMode { none, sideBySide, slider }
 
 class ResultScreen extends StatefulWidget {
   final EditedImage editedImage;
@@ -32,11 +37,14 @@ class ResultScreen extends StatefulWidget {
 
 class _ResultScreenState extends State<ResultScreen> {
   bool showComparison = false;
+  ComparisonMode _comparisonMode = ComparisonMode.none;
   bool isLoading = true;
   bool isDeleting = false;
   Uint8List? editedImageBytes;
   Uint8List? originalImageBytes;
   String? errorMessage;
+  bool _isOriginalSizeFit = false;
+  double _sliderValue = 0.5; // Add state for slider position
 
   @override
   void initState() {
@@ -162,98 +170,118 @@ class _ResultScreenState extends State<ResultScreen> {
 
   // Complete implementation of the confirmation dialog
   void _showDeleteConfirmationDialog() {
-    showDialog(
+    FlexibleDialog.showConfirmation(
       context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 1.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.delete_forever,
-                      color: Colors.redAccent,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Delete Image',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Are you sure you want to delete this image? This action cannot be undone.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close),
-                            label: const Text('Cancel'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.3),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              _deleteImage();
-                            },
-                            icon: const Icon(Icons.delete_outline),
-                            label: const Text('Delete'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      title: 'Delete Image',
+      message:
+          'Are you sure you want to delete this image? This action cannot be undone.',
+      icon: Icons.delete_forever,
+      iconColor: Colors.redAccent,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      isDanger: true,
+      onConfirm: _deleteImage,
     );
   }
 
   // Method for generating the correct hero tag
   String get _heroTag =>
       '${widget.heroTagPrefix}image_${widget.editedImage.id}';
+
+  // New method to build control buttons
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 36,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        ),
+        child: IconButton(
+          icon: Icon(icon, color: Colors.white, size: 18),
+          onPressed: onPressed,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ),
+    );
+  }
+
+  // Updated method to handle fullscreen preview - removes slider case
+  void _openFullscreenPreview() {
+    if (editedImageBytes != null) {
+      if (showComparison &&
+          originalImageBytes != null &&
+          _comparisonMode == ComparisonMode.sideBySide) {
+        // Open side-by-side comparison viewer
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => SideBySideImageViewer(
+                  beforeImageBytes: originalImageBytes!,
+                  afterImageBytes: editedImageBytes!,
+                  promptTitle: widget.editedImage.prompt,
+                ),
+          ),
+        );
+      } else {
+        // Open regular fullscreen viewer
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => FullscreenImageViewer(
+                  imageBytes: editedImageBytes!,
+                  heroTag: _heroTag,
+                  promptTitle: widget.editedImage.prompt,
+                ),
+          ),
+        );
+      }
+    }
+  }
+
+  // Add new methods to open individual images in fullscreen
+  void _openBeforeImageFullscreen() {
+    if (originalImageBytes != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => FullscreenImageViewer(
+                imageBytes: originalImageBytes!,
+                heroTag: '${_heroTag}_before',
+                promptTitle: 'Before: ${widget.editedImage.prompt}',
+              ),
+        ),
+      );
+    }
+  }
+
+  void _openAfterImageFullscreen() {
+    if (editedImageBytes != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => FullscreenImageViewer(
+                imageBytes: editedImageBytes!,
+                heroTag: '${_heroTag}_after',
+                promptTitle: 'After: ${widget.editedImage.prompt}',
+              ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -334,85 +362,115 @@ class _ResultScreenState extends State<ResultScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => FullscreenImageViewer(
-                  imageBytes: editedImageBytes!,
-                  heroTag: _heroTag, // Use the consistent tag
+    return Center(
+      // Added Center widget to center small images
+      child: GestureDetector(
+        onTap: _openFullscreenPreview,
+        child: Hero(
+          tag: _heroTag, // Use the consistent tag
+          child: Material(
+            color: Colors.transparent,
+            child: Stack(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.memory(
+                      editedImageBytes!,
+                      fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+                      gaplessPlayback: true,
+                      cacheWidth: 1080, // Cache for smoother transitions
+                    ),
+                  ),
                 ),
-          ),
-        );
-      },
-      child: Hero(
-        tag: _heroTag, // Use the consistent tag
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+
+                // Keep control buttons inside the image
+                Positioned(
+                  bottom: 20,
+                  right: 30,
+                  child: Row(
+                    children: [
+                      // Fit to original size button
+                      _buildControlButton(
+                        icon:
+                            _isOriginalSizeFit
+                                ? Icons.fit_screen
+                                : Icons.fullscreen,
+                        onPressed: () {
+                          setState(() {
+                            _isOriginalSizeFit = !_isOriginalSizeFit;
+                          });
+                        },
+                        tooltip:
+                            _isOriginalSizeFit
+                                ? 'Container fit'
+                                : 'Original size',
+                      ),
+
+                      const SizedBox(width: 8),
+                      // Fullscreen preview button
+                      _buildControlButton(
+                        icon: Icons.open_in_full,
+                        onPressed: _openFullscreenPreview,
+                        tooltip: 'Fullscreen preview',
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.memory(
-                editedImageBytes!,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                cacheWidth: 1080, // Cache for smoother transitions
-              ),
-            ),
           ),
+          // Keep existing flightShuttleBuilder
+          flightShuttleBuilder: (
+            BuildContext flightContext,
+            Animation<double> animation,
+            HeroFlightDirection flightDirection,
+            BuildContext fromHeroContext,
+            BuildContext toHeroContext,
+          ) {
+            // Custom flight shuttle for smoother image transitions
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) {
+                return Material(
+                  color: Colors.transparent,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      20.0 *
+                              (flightDirection == HeroFlightDirection.push
+                                  ? animation.value
+                                  : 1.0 - animation.value) +
+                          12.0 *
+                              (flightDirection == HeroFlightDirection.push
+                                  ? 1.0 - animation.value
+                                  : animation.value),
+                    ),
+                    child: Image.memory(
+                      editedImageBytes!,
+                      fit: _isOriginalSizeFit ? BoxFit.contain : BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
-        // Keep existing flightShuttleBuilder
-        flightShuttleBuilder: (
-          BuildContext flightContext,
-          Animation<double> animation,
-          HeroFlightDirection flightDirection,
-          BuildContext fromHeroContext,
-          BuildContext toHeroContext,
-        ) {
-          // Custom flight shuttle for smoother image transitions
-          return AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              return Material(
-                color: Colors.transparent,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    20.0 *
-                            (flightDirection == HeroFlightDirection.push
-                                ? animation.value
-                                : 1.0 - animation.value) +
-                        12.0 *
-                            (flightDirection == HeroFlightDirection.push
-                                ? 1.0 - animation.value
-                                : animation.value),
-                  ),
-                  child: Image.memory(
-                    editedImageBytes!,
-                    fit: BoxFit.contain,
-                    gaplessPlayback: true,
-                  ),
-                ),
-              );
-            },
-          );
-        },
       ),
     );
   }
@@ -426,43 +484,67 @@ class _ResultScreenState extends State<ResultScreen> {
         height: 400,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: Colors.grey.withValues(alpha: 0.3),
+          color: Colors.grey.withOpacity(0.3),
         ),
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: 64,
-            color: Colors.white.withValues(alpha: 0.5),
+            color: Colors.white.withOpacity(0.5),
           ),
         ),
       );
     }
 
     // Don't use Hero in the comparison view
-    return Material(
-      type: MaterialType.transparency,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+    return GestureDetector(
+      onTap: isAfter ? _openAfterImageFullscreen : _openBeforeImageFullscreen,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.3),
+              width: 1.5,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Image.memory(
-            imageBytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                Image.memory(
+                  imageBytes,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                ),
+                // Add subtle indicator that image is tappable
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.zoom_in,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -489,17 +571,19 @@ class _ResultScreenState extends State<ResultScreen> {
           fit: BoxFit.cover,
         ),
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.2),
-                Colors.black.withValues(alpha: 0.6),
-              ],
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.2),
+                  Colors.black.withOpacity(0.6),
+                ],
+              ),
             ),
           ),
         ),
@@ -513,43 +597,137 @@ class _ResultScreenState extends State<ResultScreen> {
       return Center(child: Text("Original image not available for comparison"));
     }
 
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'BEFORE',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
+    return _comparisonMode == ComparisonMode.slider
+        ? _buildImageComparisonSlider()
+        : Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'BEFORE',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildImageContainer(isAfter: false),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'AFTER',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildImageContainer(isAfter: true),
+                ],
+              ),
+            ),
+          ],
+        );
+  }
+
+  // Updated method to build the image comparison slider using before_after package
+  Widget _buildImageComparisonSlider() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 200,
+                maxHeight: MediaQuery.of(context).size.height * 0.6,
+              ),
+              child: BeforeAfter(
+                value: _sliderValue,
+                onValueChanged: (value) {
+                  setState(() {
+                    _sliderValue = value;
+                  });
+                },
+                thumbColor: Colors.white,
+                before: Image.memory(
+                  originalImageBytes!,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
+                after: Image.memory(
+                  editedImageBytes!,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
                 ),
               ),
-              const SizedBox(height: 8),
-              _buildImageContainer(isAfter: false),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'AFTER',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
+            ),
+
+            // Add "BEFORE" label manually
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'BEFORE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              _buildImageContainer(isAfter: true),
-            ],
-          ),
+            ),
+
+            // Add "AFTER" label manually
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'AFTER',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -561,61 +739,96 @@ class _ResultScreenState extends State<ResultScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                Icons.description_outlined,
-                size: 18,
-                color: Colors.white.withValues(alpha: 0.7),
+              Row(
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: 18,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Edit Request',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                'Edit Request',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.7),
+              // Add info button to show full prompt
+              IconButton(
+                icon: Icon(
+                  Icons.info_outline,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 20,
                 ),
+                onPressed: () => _showFullPromptDialog(context),
+                tooltip: 'View full prompt',
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            widget.editedImage.prompt,
+            // Truncate the prompt to one line
+            widget.editedImage.prompt.length > 100
+                ? '${widget.editedImage.prompt.substring(0, 100)}...'
+                : widget.editedImage.prompt,
             style: TextStyle(
               fontSize: 16,
               fontStyle: FontStyle.italic,
               fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
 
           const SizedBox(height: 20),
 
-          // Before/After Toggle Button
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-            child: TextButton.icon(
-              icon: Icon(
-                showComparison ? Icons.visibility_off : Icons.compare,
-                color: Colors.white,
+          // Comparison mode toggle
+          if (originalImageBytes != null) ...[
+            Center(
+              child: Column(
+                children: [
+                  // Segmented button for comparison type
+                  SegmentedButton<ComparisonMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ComparisonMode.none,
+                        icon: Icon(Icons.image),
+                        label: Text('Single'),
+                      ),
+                      ButtonSegment(
+                        value: ComparisonMode.sideBySide,
+                        icon: Icon(Icons.compare),
+                        label: Text('Compare'),
+                      ),
+                      ButtonSegment(
+                        value: ComparisonMode.slider,
+                        icon: Icon(Icons.compare_arrows),
+                        label: Text('Slider'),
+                      ),
+                    ],
+                    selected: {_comparisonMode},
+                    onSelectionChanged: (newSelection) {
+                      setState(() {
+                        _comparisonMode = newSelection.first;
+                        showComparison = _comparisonMode != ComparisonMode.none;
+                      });
+                    },
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      selectedForegroundColor: Colors.white,
+                      selectedBackgroundColor: Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                ],
               ),
-              label: Text(
-                showComparison ? 'Hide Comparison' : 'Show Before & After',
-                style: const TextStyle(color: Colors.white),
-              ),
-              onPressed:
-                  originalImageBytes != null
-                      ? () {
-                        setState(() {
-                          showComparison = !showComparison;
-                        });
-                      }
-                      : null,
             ),
-          ),
+          ],
 
           const SizedBox(height: 15),
 
@@ -629,9 +842,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   label: const Text('Save'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -644,9 +855,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   label: const Text('Share'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -674,6 +883,203 @@ class _ResultScreenState extends State<ResultScreen> {
             icon: Icons.edit,
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFullPromptDialog(BuildContext context) {
+    FlexibleDialog.showCustomDialog(
+      context: context,
+      title: 'Edit Request Details',
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.4,
+        ),
+        child: SingleChildScrollView(
+          child: Text(
+            widget.editedImage.prompt,
+            style: const TextStyle(fontSize: 16, height: 1.5),
+          ),
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+// Side by Side Image Viewer remains unchanged
+class SideBySideImageViewer extends StatelessWidget {
+  final Uint8List beforeImageBytes;
+  final Uint8List afterImageBytes;
+  final String? promptTitle;
+
+  const SideBySideImageViewer({
+    Key? key,
+    required this.beforeImageBytes,
+    required this.afterImageBytes,
+    this.promptTitle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black.withOpacity(0.4),
+        title: Text(promptTitle ?? 'Image Comparison'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          boundaryMargin: const EdgeInsets.all(20),
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'BEFORE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Image.memory(
+                        beforeImageBytes,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'AFTER',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Image.memory(afterImageBytes, fit: BoxFit.contain),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Fix the SliderImageViewer implementation
+class SliderImageViewer extends StatelessWidget {
+  final Uint8List beforeImageBytes;
+  final Uint8List afterImageBytes;
+  final String? promptTitle;
+
+  const SliderImageViewer({
+    Key? key,
+    required this.beforeImageBytes,
+    required this.afterImageBytes,
+    this.promptTitle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black.withOpacity(0.4),
+        title: Text(promptTitle ?? 'Image Comparison'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          boundaryMargin: const EdgeInsets.all(20),
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Stack(
+            children: [
+              BeforeAfter(
+                value: 0.5, // Initial value
+                thumbColor: Colors.white,
+                before: Image.memory(beforeImageBytes, fit: BoxFit.contain),
+                after: Image.memory(afterImageBytes, fit: BoxFit.contain),
+              ),
+
+              // Add "BEFORE" label manually
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'BEFORE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Add "AFTER" label manually
+              Positioned(
+                top: 20,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'AFTER',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

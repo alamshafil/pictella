@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/app_settings.dart';
+import 'package:image_app/utils/app_settings.dart';
 
 class GlassButton extends StatelessWidget {
   final String text;
@@ -60,30 +60,24 @@ class GlassButton extends StatelessWidget {
           disabledBackgroundColor: actualButtonColor.withValues(alpha: 0.3),
           disabledForegroundColor: actualTextColor.withValues(alpha: 0.5),
         ),
-        child:
-            icon != null
-                ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: iconSize),
-                    const SizedBox(width: 6),
-                    Text(
-                      text,
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                )
-                : Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w600,
-                  ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: iconSize ?? 18, color: Colors.white),
+              SizedBox(width: text.isNotEmpty ? 8.0 : 0),
+            ],
+            if (text.isNotEmpty)
+              Text(
+                text,
+                style: TextStyle(
+                  fontSize: fontSize ?? 14,
+                  fontWeight: FontWeight.w500,
                 ),
+              ),
+          ],
+        ),
       ),
     );
   }

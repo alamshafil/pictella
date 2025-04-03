@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../models/edited_image.dart';
-import '../services/storage_service.dart';
-import '../utils/log.dart';
+import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/services/storage_service.dart';
+import 'package:image_app/utils/log.dart';
+import 'package:intl/intl.dart'; // Add this import
 import 'result_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -159,38 +160,64 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: 0.1),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        decoration: InputDecoration(
-          hintText: 'Search by prompt or title...',
-          prefixIcon: Icon(
-            Icons.search,
-            color: Colors.white.withValues(alpha: 0.7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withValues(alpha: 0.1),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                decoration: InputDecoration(
+                  hintText: 'Search by prompt or title...',
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  suffixIcon:
+                      _isSearching
+                          ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                            onPressed: _clearSearch,
+                          )
+                          : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                ),
+                style: const TextStyle(fontSize: 16),
+                onChanged: _performSearch,
+              ),
+            ),
           ),
-          suffixIcon:
-              _isSearching
-                  ? IconButton(
-                    icon: Icon(
-                      Icons.clear,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    onPressed: _clearSearch,
-                  )
-                  : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15),
-        ),
-        style: const TextStyle(fontSize: 16),
-        onChanged: _performSearch,
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withValues(alpha: 0.1),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.refresh,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+              onPressed: _isLoading ? null : _loadAllImages,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -328,7 +355,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    image.timestamp.toString().substring(0, 10),
+                    DateFormat('MMM dd, h:mma').format(image.timestamp),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.6),
