@@ -42,11 +42,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
 
   // AI Model selection
   String _selectedAIModel = "Gemini 2.0 Flash"; // Default model
-  final List<String> _availableAIModels = [
-    "Gemini 2.0 Flash",
-    "GPT-4o",
-    "DeepSeek v3",
-  ];
+  final List<String> _availableAIModels = ["Gemini 2.0 Flash"];
 
   // Bottom sheet configuration
   bool _isBottomSheetExpanded = true;
@@ -192,7 +188,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       final base64GeneratedImage = await GeminiApiService.editImage(
         imageData: sourceImageBytes,
         prompt: formattedPrompt,
-        // model: _selectedAIModel, // Pass the selected model
+        // model: _selectedAIModel, // TODO: Pass the selected model
       );
 
       // Convert base64 back to image bytes
@@ -405,14 +401,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                     child: Container(
                       height: currentBottomSheetHeight + bottomPadding,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(20),
                         ),
                         border: Border(
                           top: BorderSide(
                             width: 1.8,
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                           ),
                         ),
                       ),
@@ -459,8 +455,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF01579B).withOpacity(0.8),
-              Colors.black.withOpacity(0.8),
+              const Color(0xFF01579B).withValues(alpha: 0.8),
+              Colors.black.withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -485,8 +481,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.2),
-                  Colors.black.withOpacity(0.6),
+                  Colors.black.withValues(alpha: 0.2),
+                  Colors.black.withValues(alpha: 0.6),
                 ],
               ),
             ),
@@ -514,12 +510,12 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 8),
                             ),
@@ -552,7 +548,9 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                                     child: Text(
                                       'Generating your edit...',
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -614,10 +612,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Colors.black.withOpacity(0),
+                    Colors.black.withValues(alpha: 0),
                     Colors.black,
                     Colors.black,
-                    Colors.black.withOpacity(0),
+                    Colors.black.withValues(alpha: 0),
                   ],
                   stops: const [0.0, 0.1, 0.9, 1.0],
                 ).createShader(bounds);
@@ -652,14 +650,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                             color:
                                 isSelected
                                     ? Colors.white
-                                    : Colors.white.withOpacity(0.3),
+                                    : Colors.white.withValues(alpha: 0.3),
                             width: isSelected ? 2 : 1,
                           ),
                           boxShadow:
                               isSelected
                                   ? [
                                     BoxShadow(
-                                      color: Colors.blue.withOpacity(0.5),
+                                      color: Colors.blue.withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     ),
@@ -687,7 +685,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
+                                    color: Colors.black.withValues(alpha: 0.6),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -724,14 +722,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                           color:
                               isSelected
                                   ? Colors.white
-                                  : Colors.white.withOpacity(0.3),
+                                  : Colors.white.withValues(alpha: 0.3),
                           width: isSelected ? 2 : 1,
                         ),
                         boxShadow:
                             isSelected
                                 ? [
                                   BoxShadow(
-                                    color: Colors.blue.withOpacity(0.5),
+                                    color: Colors.blue.withValues(alpha: 0.5),
                                     blurRadius: 8,
                                     spreadRadius: 1,
                                   ),
@@ -757,7 +755,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                               child: Container(
                                 padding: const EdgeInsets.all(2),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Colors.black.withValues(alpha: 0.6),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -825,7 +823,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                 return Center(
                   child: Icon(
                     Icons.broken_image,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     size: 64,
                   ),
                 );
@@ -846,7 +844,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                       return Center(
                         child: Icon(
                           Icons.broken_image,
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           size: 64,
                         ),
                       );
@@ -908,9 +906,12 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         height: 36,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
         child: IconButton(
           icon: Icon(icon, color: Colors.white, size: 18),
@@ -929,7 +930,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         children: [
           Icon(
             _editHistory.isNotEmpty ? Icons.edit : Icons.draw,
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -939,7 +940,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                   : "Describe how you want to edit...",
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -961,7 +962,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             children: [
               Icon(
                 _editHistory.isNotEmpty ? Icons.edit : Icons.draw,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
               const SizedBox(width: 8),
               Text(
@@ -1009,7 +1010,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           padding: const EdgeInsets.all(8.0),
           child: Icon(
             expanded ? Icons.expand_more : Icons.expand_less,
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
           ),
         ),
       ),
@@ -1023,10 +1024,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.white.withOpacity(0),
+            Colors.white.withValues(alpha: 0),
             Colors.white,
             Colors.white,
-            Colors.white.withOpacity(0),
+            Colors.white.withValues(alpha: 0),
           ],
           stops: const [0.0, 0.05, 0.95, 1.0],
         ).createShader(bounds);
@@ -1043,7 +1044,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             _buildPromptField(),
             if (_errorMessage != null) _buildErrorMessage(),
             _buildModelSelector(),
-            Divider(color: Colors.white.withOpacity(0.2)),
+            Divider(color: Colors.white.withValues(alpha: 0.2)),
             _buildAdvancedEditingSection(),
             _buildAdvancedOptionsToggle(),
             if (_showAdvancedOptions) _buildAdvancedOptionsContent(),
@@ -1056,7 +1057,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   Widget _buildEditNumberIndicator() {
     return Row(
       children: [
-        Icon(Icons.tag, color: Colors.white.withOpacity(0.5)),
+        Icon(Icons.tag, color: Colors.white.withValues(alpha: 0.5)),
         const SizedBox(width: 4),
         Text('Edit #${_editHistory.length + 1}'),
       ],
@@ -1068,21 +1069,21 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       controller: _promptController,
       decoration: InputDecoration(
         hintText: 'Example: Change the background to a beach sunset',
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.4)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.08),
+        fillColor: Colors.white.withValues(alpha: 0.08),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -1114,20 +1115,23 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       children: [
         Icon(
           Icons.auto_awesome,
-          color: Colors.purpleAccent.withOpacity(0.9),
+          color: Colors.purpleAccent.withValues(alpha: 0.9),
           size: 20,
         ),
         const SizedBox(width: 8),
         Text(
           'AI Model',
-          style: TextStyle(fontSize: 15, color: Colors.white.withOpacity(0.9)),
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
         ),
         const Spacer(),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: DropdownButtonHideUnderline(
@@ -1137,7 +1141,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
               dropdownColor: Colors.black87,
               icon: Icon(
                 Icons.arrow_drop_down,
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
               ),
               items:
                   _availableAIModels.map((String model) {
@@ -1194,12 +1198,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'View All',
-                    style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
                   ),
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 14,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ],
               ),
@@ -1228,11 +1234,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   }) {
     return Row(
       children: [
-        Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.8)),
+        Icon(icon, color: iconColor ?? Colors.white.withValues(alpha: 0.8)),
         const SizedBox(width: 8),
         Text(
           text,
-          style: TextStyle(fontSize: 15, color: Colors.white.withOpacity(0.9)),
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
         ),
       ],
     );
@@ -1248,10 +1257,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Colors.white.withOpacity(0.0),
+            Colors.white.withValues(alpha: 0.0),
             Colors.white,
             Colors.white,
-            Colors.white.withOpacity(0.0),
+            Colors.white.withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.05, 0.95, 1.0],
         ).createShader(bounds);
@@ -1275,10 +1284,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: prompt.accentColor.withOpacity(0.4),
+            color: prompt.accentColor.withValues(alpha: 0.4),
             width: 1.5,
           ),
         ),
@@ -1293,7 +1302,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1316,7 +1325,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Icon(Icons.settings, color: Colors.white.withOpacity(0.8)),
+            Icon(Icons.settings, color: Colors.white.withValues(alpha: 0.8)),
             const SizedBox(width: 6),
             const Text(
               'Advanced Options',
@@ -1328,7 +1337,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                   ? Icons.keyboard_arrow_up
                   : Icons.keyboard_arrow_down,
               size: 16,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ],
         ),
@@ -1343,10 +1352,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Colors.white.withOpacity(0),
+            Colors.white.withValues(alpha: 0),
             Colors.white,
             Colors.white,
-            Colors.white.withOpacity(0),
+            Colors.white.withValues(alpha: 0),
           ],
           stops: const [0.0, 0.04, 0.96, 1.0],
         ).createShader(bounds);
@@ -1370,8 +1379,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: child,
     );
@@ -1388,7 +1397,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
               color:
                   _enhancedThinkingEnabled
                       ? Colors.blueAccent
-                      : Colors.white.withOpacity(0.7),
+                      : Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 8),
             const Expanded(
@@ -1405,14 +1414,17 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                 });
               },
               activeColor: Colors.blueAccent,
-              inactiveTrackColor: Colors.white.withOpacity(0.2),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
             ),
           ],
         ),
         const SizedBox(height: 2),
         Text(
           'Analyzes image and plans changes before editing',
-          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );
@@ -1443,7 +1455,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             max: 1.0,
             divisions: 10,
             activeColor: Colors.orangeAccent,
-            inactiveColor: Colors.white.withOpacity(0.2),
+            inactiveColor: Colors.white.withValues(alpha: 0.2),
             onChanged: (value) {
               setState(() => _temperature = value);
             },
@@ -1456,7 +1468,10 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
               : _temperature < 0.7
               ? 'Medium: Balanced variations'
               : 'Higher: More diverse, experimental outcomes',
-          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );
@@ -1476,7 +1491,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withOpacity(0.3)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
               padding: EdgeInsets.zero,
             ),
           ),

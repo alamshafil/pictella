@@ -6,16 +6,11 @@ import 'package:image_app/models/edited_image.dart';
 import 'package:image_app/screens/prompts_screen.dart';
 import 'package:image_app/screens/search_screen.dart';
 import 'package:image_app/services/storage_service.dart';
-import 'package:image_app/utils/app_settings.dart';
-import 'dart:ui';
 import 'package:image_app/utils/log.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'result_screen.dart';
 import 'edit_screen.dart';
-import '../utils/app_settings.dart';
-import '../services/storage_service.dart';
-import '../models/edited_image.dart';
 import 'package:image_app/config/advanced_prompts.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -140,83 +135,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
       title: 'Select Image Source',
       message: 'Choose how you want to upload your image',
-    );
-  }
-
-  Widget _buildDialogContent(BuildContext context) {
-    final blurEffectsEnabled = AppSettings.instance.blurEffectsEnabled;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: blurEffectsEnabled ? 0.15 : 0.25),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Select Image Source',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSourceOption(
-                icon: Icons.camera_alt,
-                label: 'Camera',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              _buildSourceOption(
-                icon: Icons.photo_library,
-                label: 'Gallery',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSourceOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1,
-              ),
-              color: Colors.white.withValues(alpha: 0.1),
-            ),
-            child: Icon(icon, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 14)),
-        ],
-      ),
     );
   }
 
@@ -492,7 +410,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: prompt.accentColor.withOpacity(0.2),
+                            color: prompt.accentColor.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -527,7 +445,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Text(
             prompt.description,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
           ),
           const SizedBox(height: 32),
           Row(
@@ -562,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
-            side: BorderSide(color: Colors.white.withOpacity(0.3)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
           ),
         ),
       ],
@@ -741,7 +659,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         height: 24,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: Colors.white.withOpacity(0.7),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.7,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -759,7 +679,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -804,7 +724,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       height: 24,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white.withOpacity(0.7),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -856,7 +778,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: SizedBox(
         width: 80,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -867,10 +789,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   width: 1,
                 ),
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
               child: Icon(icon, color: Colors.white, size: 28),
             ),

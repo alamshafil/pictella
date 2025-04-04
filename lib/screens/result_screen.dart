@@ -28,7 +28,7 @@ class ResultScreen extends StatefulWidget {
     super.key,
     required this.editedImage,
     this.isFromEditScreen = false,
-    this.heroTagPrefix = '', // Default to empty for backward compatibility
+    this.heroTagPrefix = '',
   });
 
   @override
@@ -44,7 +44,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Uint8List? originalImageBytes;
   String? errorMessage;
   bool _isOriginalSizeFit = false;
-  double _sliderValue = 0.5; // Add state for slider position
+  double _sliderValue = 0.5;
 
   @override
   void initState() {
@@ -201,9 +201,12 @@ class _ResultScreenState extends State<ResultScreen> {
         height: 36,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
         child: IconButton(
           icon: Icon(icon, color: Colors.white, size: 18),
@@ -377,12 +380,12 @@ class _ResultScreenState extends State<ResultScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -435,7 +438,6 @@ class _ResultScreenState extends State<ResultScreen> {
               ],
             ),
           ),
-          // Keep existing flightShuttleBuilder
           flightShuttleBuilder: (
             BuildContext flightContext,
             Animation<double> animation,
@@ -484,13 +486,13 @@ class _ResultScreenState extends State<ResultScreen> {
         height: 400,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: Colors.grey.withOpacity(0.3),
+          color: Colors.grey.withValues(alpha: 0.3),
         ),
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: 64,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
         ),
       );
@@ -506,12 +508,12 @@ class _ResultScreenState extends State<ResultScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 15,
                 offset: const Offset(0, 8),
               ),
@@ -533,7 +535,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -580,8 +582,8 @@ class _ResultScreenState extends State<ResultScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.2),
-                  Colors.black.withOpacity(0.6),
+                  Colors.black.withValues(alpha: 0.2),
+                  Colors.black.withValues(alpha: 0.6),
                 ],
               ),
             ),
@@ -645,10 +647,13 @@ class _ResultScreenState extends State<ResultScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -691,7 +696,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
@@ -712,7 +717,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
@@ -746,14 +751,14 @@ class _ResultScreenState extends State<ResultScreen> {
                   Icon(
                     Icons.description_outlined,
                     size: 18,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     'Edit Request',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -762,7 +767,7 @@ class _ResultScreenState extends State<ResultScreen> {
               IconButton(
                 icon: Icon(
                   Icons.info_outline,
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   size: 20,
                 ),
                 onPressed: () => _showFullPromptDialog(context),
@@ -822,7 +827,9 @@ class _ResultScreenState extends State<ResultScreen> {
                       backgroundColor: Colors.transparent,
                       foregroundColor: Colors.white,
                       selectedForegroundColor: Colors.white,
-                      selectedBackgroundColor: Colors.white.withOpacity(0.2),
+                      selectedBackgroundColor: Colors.white.withValues(
+                        alpha: 0.2,
+                      ),
                     ),
                   ),
                 ],
@@ -842,7 +849,9 @@ class _ResultScreenState extends State<ResultScreen> {
                   label: const Text('Save'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -855,7 +864,9 @@ class _ResultScreenState extends State<ResultScreen> {
                   label: const Text('Share'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -919,18 +930,18 @@ class SideBySideImageViewer extends StatelessWidget {
   final String? promptTitle;
 
   const SideBySideImageViewer({
-    Key? key,
+    super.key,
     required this.beforeImageBytes,
     required this.afterImageBytes,
     this.promptTitle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.4),
+        backgroundColor: Colors.black.withValues(alpha: 0.4),
         title: Text(promptTitle ?? 'Image Comparison'),
         centerTitle: true,
         elevation: 0,
@@ -999,18 +1010,18 @@ class SliderImageViewer extends StatelessWidget {
   final String? promptTitle;
 
   const SliderImageViewer({
-    Key? key,
+    super.key,
     required this.beforeImageBytes,
     required this.afterImageBytes,
     this.promptTitle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.4),
+        backgroundColor: Colors.black.withValues(alpha: 0.4),
         title: Text(promptTitle ?? 'Image Comparison'),
         centerTitle: true,
         elevation: 0,
@@ -1040,7 +1051,7 @@ class SliderImageViewer extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
@@ -1064,7 +1075,7 @@ class SliderImageViewer extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(

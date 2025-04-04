@@ -65,14 +65,14 @@ class GlassButton extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: iconSize ?? 18, color: Colors.white),
+              Icon(icon, size: iconSize, color: Colors.white),
               SizedBox(width: text.isNotEmpty ? 8.0 : 0),
             ],
             if (text.isNotEmpty)
               Text(
                 text,
                 style: TextStyle(
-                  fontSize: fontSize ?? 14,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w500,
                 ),
               ),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_app/models/edited_image.dart';
 import 'package:image_app/services/storage_service.dart';
 import 'package:image_app/utils/log.dart';
-import 'package:intl/intl.dart'; // Add this import
+import 'package:intl/intl.dart';
 import 'result_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -289,10 +289,8 @@ class _SearchScreenState extends State<SearchScreen> {
           context,
           MaterialPageRoute(
             builder:
-                (context) => ResultScreen(
-                  editedImage: image,
-                  heroTagPrefix: 'search_', // Add this parameter
-                ),
+                (context) =>
+                    ResultScreen(editedImage: image, heroTagPrefix: 'search_'),
           ),
         ).then((_) => _loadAllImages());
       },
@@ -318,8 +316,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   top: Radius.circular(12),
                 ),
                 child: Hero(
-                  tag:
-                      'search_image_${image.id}', // Updated hero tag with prefix
+                  tag: 'search_image_${image.id}',
                   child: FutureBuilder<Uint8List?>(
                     future: StorageService.loadImageBytes(image.localPath),
                     builder: (context, snapshot) {

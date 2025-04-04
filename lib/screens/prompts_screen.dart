@@ -58,20 +58,20 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
           Text(
             prompt.description,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withOpacity(0.9)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: Text(
               prompt.prompt,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 13,
               ),
             ),
@@ -102,7 +102,7 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
-            side: BorderSide(color: Colors.white.withOpacity(0.3)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
           ),
         ),
       ],
@@ -188,17 +188,17 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                       ),
                     ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
+                    fillColor: Colors.white.withValues(alpha: 0.1),
                   ),
                 ),
               ),
@@ -213,10 +213,10 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Colors.black.withOpacity(0),
+                        Colors.black.withValues(alpha: 0),
                         Colors.black,
                         Colors.black,
-                        Colors.black.withOpacity(0),
+                        Colors.black.withValues(alpha: 0),
                       ],
                       stops: const [0.0, 0.05, 0.95, 1.0],
                     ).createShader(bounds);
@@ -241,7 +241,9 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                             vertical: 8,
                           ),
                           color:
-                              isSelected ? Colors.white.withOpacity(0.2) : null,
+                              isSelected
+                                  ? Colors.white.withValues(alpha: 0.2)
+                                  : null,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -251,7 +253,7 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                                 color:
                                     isSelected
                                         ? Colors.white
-                                        : Colors.white.withOpacity(0.7),
+                                        : Colors.white.withValues(alpha: 0.7),
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -260,7 +262,7 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                                   color:
                                       isSelected
                                           ? Colors.white
-                                          : Colors.white.withOpacity(0.7),
+                                          : Colors.white.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -280,10 +282,10 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0),
+                        Colors.black.withValues(alpha: 0),
                         Colors.black,
                         Colors.black,
-                        Colors.black.withOpacity(0),
+                        Colors.black.withValues(alpha: 0),
                       ],
                       stops: const [0.0, 0.05, 0.95, 1.0],
                     ).createShader(bounds);
@@ -309,7 +311,9 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: prompt.accentColor.withOpacity(0.2),
+                                color: prompt.accentColor.withValues(
+                                  alpha: 0.2,
+                                ),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -337,7 +341,7 @@ class _AdvancedPromptsScreenState extends State<AdvancedPromptsScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
