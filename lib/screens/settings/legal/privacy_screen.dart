@@ -84,7 +84,7 @@ class PrivacyScreen extends StatelessWidget {
 
                 _buildSection(
                   '3. Data Storage',
-                  'PhotoMagic AI Editor stores user data locally on the device. This section would '
+                  'Pictella AI Editor stores user data locally on the device. This section would '
                       'detail how user data is stored, whether it\'s transmitted to servers, and any '
                       'encryption methods used.',
                 ),

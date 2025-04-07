@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_app/utils/app_settings.dart';
 import 'dart:ui';
@@ -167,38 +168,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                               const SizedBox(height: 20),
 
-                              _buildSettingCategory('Legal'),
+                              if (kDebugMode) ...[
+                                _buildSettingCategory('Legal'),
 
-                              _buildSettingTile(
-                                context,
-                                icon: Icons.description_outlined,
-                                title: 'Terms of Service',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const TermsScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
+                                _buildSettingTile(
+                                  context,
+                                  icon: Icons.description_outlined,
+                                  title: 'Terms of Service',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const TermsScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
 
-                              _buildSettingTile(
-                                context,
-                                icon: Icons.privacy_tip_outlined,
-                                title: 'Privacy Policy',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => const PrivacyScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
+                                _buildSettingTile(
+                                  context,
+                                  icon: Icons.privacy_tip_outlined,
+                                  title: 'Privacy Policy',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const PrivacyScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
 
-                              const SizedBox(height: 20),
+                                const SizedBox(height: 20),
+                              ],
 
                               _buildSettingCategory('Info'),
 
@@ -225,7 +229,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 onTap: () {
                                   showLicensePage(
                                     context: context,
-                                    applicationName: 'PhotoMagic AI Editor',
+                                    applicationName: 'Pictella AI Editor',
                                     applicationVersion: '1.0.0',
                                     applicationIcon: Padding(
                                       padding: const EdgeInsets.all(8.0),

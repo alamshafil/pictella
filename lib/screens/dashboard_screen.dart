@@ -270,7 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(width: 12),
           Text(
-            'PhotoMagic AI',
+            'Pictella AI',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,

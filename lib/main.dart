@@ -48,7 +48,7 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PhotoMagic AI Editor',
+      title: 'Pictella',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,

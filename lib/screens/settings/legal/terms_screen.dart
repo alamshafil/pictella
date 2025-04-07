@@ -79,14 +79,14 @@ class TermsScreen extends StatelessWidget {
 
                 _buildSection(
                   '2. Acceptance of Terms',
-                  'By accessing or using the PhotoMagic AI Editor application, you agree to be bound '
+                  'By accessing or using the Pictella AI Editor application, you agree to be bound '
                       'by these Terms of Service. If you do not agree to these terms, please do not use '
                       'the application.',
                 ),
 
                 _buildSection(
                   '3. Description of Service',
-                  'PhotoMagic AI Editor provides AI-powered photo editing capabilities. This is a '
+                  'Pictella AI Editor provides AI-powered photo editing capabilities. This is a '
                       'placeholder for a detailed description of services provided by the application.',
                 ),
 

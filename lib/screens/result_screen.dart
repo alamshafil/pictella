@@ -117,7 +117,7 @@ class _ResultScreenState extends State<ResultScreen> {
       // Share the file
       await Share.shareXFiles([
         XFile(file.path),
-      ], text: 'Check out this image I edited with PhotoMagic AI!');
+      ], text: 'Check out this image I edited with Pictella AI!');
     } catch (e) {
       printDebug('❌ Error sharing image: $e');
       if (!mounted) return;

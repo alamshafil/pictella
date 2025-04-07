@@ -83,7 +83,7 @@ class _AboutScreenState extends State<AboutScreen> {
 
                 // App name and version
                 const Text(
-                  'PhotoMagic AI Editor',
+                  'Pictella AI Editor',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
 
@@ -143,7 +143,7 @@ class _AboutScreenState extends State<AboutScreen> {
                     ),
                   ),
                   child: const Text(
-                    'PhotoMagic AI Editor is an application that allows users to edit photos using'
+                    'Pictella AI Editor is an application that allows users to edit photos using'
                     ' artificial intelligence. Users can add people, remove objects, change'
                     ' backgrounds, and apply various styles to their images.',
                     style: TextStyle(fontSize: 16, height: 1.5),

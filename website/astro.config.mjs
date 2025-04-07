@@ -5,12 +5,12 @@ import starlight from '@astrojs/starlight';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://alamshafil.github.io',
-	base: 'photomagic-ai',
+	base: 'Pictella',
 	integrations: [
 		starlight({
-			title: 'PhotoMagic AI',
+			title: 'Pictella AI',
 			social: {
-				github: 'https://github.com/alamshafil/photomagic-ai',
+				github: 'https://github.com/alamshafil/pictella',
 			},
 			sidebar: [
 				{
