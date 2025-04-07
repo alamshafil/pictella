@@ -5,7 +5,7 @@ import starlight from '@astrojs/starlight';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://alamshafil.github.io',
-	base: 'Pictella',
+	base: 'pictella',
 	integrations: [
 		starlight({
 			title: 'Pictella AI',

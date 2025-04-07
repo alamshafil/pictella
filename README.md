@@ -1,6 +1,6 @@
 # 📸 Pictella App
 
-**Pictella** is an open-source, cross-platform mobile app that brings powerful AI image editing tools right to your fingertips. Built with **Flutter**, it currently supports **iOS, Android, and macOS**, making it easy to run on your favorite device.
+**Pictella** is an open-source, cross-platform mobile app that brings powerful AI image editing tools to your device. Built with Flutter, it currently supports iOS and Android.
 
 > ⚠️ **Note**: This app is still in early development and is **not considered stable**. Features may break or change without warning.
 
@@ -40,7 +40,8 @@ This project is open to contributions and community input! If you want to:
 - Add support for new APIs
 - Fix bugs or UI issues
 - Suggest features or improvements
-- Feel free to open an issue or a pull request.
+
+Feel free to open an issue or a pull request.
 
 ## 📄 License
 
