@@ -1,6 +1,6 @@
-# 📸 PhotoMagic AI
+# 📸 Pictella App
 
-**PhotoMagic AI** is an open-source, cross-platform mobile app that brings powerful AI image editing tools right to your fingertips. Built with **Flutter**, it currently supports **iOS, Android, and macOS**, making it easy to run on your favorite device.
+**Pictella** is an open-source, cross-platform mobile app that brings powerful AI image editing tools right to your fingertips. Built with **Flutter**, it currently supports **iOS, Android, and macOS**, making it easy to run on your favorite device.
 
 > ⚠️ **Note**: This app is still in early development and is **not considered stable**. Features may break or change without warning.
 
@@ -27,8 +27,8 @@ You **must** provide your own Google API key. This is subject to change as new A
 Clone the repo and run it like any Flutter app:
 
 ```bash
-git clone https://github.com/alamshafil/photomagic-ai.git
-cd photomagic-ai
+git clone https://github.com/alamshafil/pictella.git
+cd pictella
 flutter pub get
 flutter run
 ```
@@ -44,11 +44,11 @@ This project is open to contributions and community input! If you want to:
 
 ## 📄 License
 
-PhotoMagic AI is released under the MIT License.
+Pictella is released under the MIT License.
 
 ## 🛍️ Official Paid Version
 
-If you’d like to support the development of **PhotoMagic AI**, you can purchase the official version on the App Store.
+If you’d like to support the development of **Pictella**, you can purchase the official version on the App Store.
 
 - 💙 **Same core features** as the open-source version.
 - ✅ Includes updates, optimizations, and priority bug fixes.
