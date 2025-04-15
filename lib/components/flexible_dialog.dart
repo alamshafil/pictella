@@ -93,7 +93,7 @@ class FlexibleDialog extends StatelessWidget {
       dialogContent = ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: dialogContent,
         ),
       );

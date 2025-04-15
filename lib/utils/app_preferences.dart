@@ -88,7 +88,9 @@ class AppPreferences {
   static Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+
     // Note: We don't clear the API key by default when resetting preferences
     // This would require explicit deleteApiKey() call
+    await deleteApiKey();
   }
 }
