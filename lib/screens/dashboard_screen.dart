@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:image_app/components/glass_container.dart';
 import 'package:image_app/components/flexible_dialog.dart';
 import 'package:image_app/models/edited_image.dart';
+import 'package:image_app/models/saved_style.dart';
 import 'package:image_app/screens/prompts_screen.dart';
 import 'package:image_app/screens/search_screen.dart';
 import 'package:image_app/services/storage_service.dart';
 import 'package:image_app/utils/log.dart';
+import 'package:image_app/config/advanced_prompts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'result_screen.dart';
 import 'edit_screen.dart';
-import 'package:image_app/config/advanced_prompts.dart';
+import 'styles_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool isInTabView;
@@ -28,12 +30,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ImagePicker _picker = ImagePicker();
   bool _isLoadingImages = false;
   List<EditedImage> _savedImages = [];
+  bool _isLoadingStyles = false;
+  List<SavedStyle> _savedStyles = [];
   late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     _loadSavedImages();
+    _loadSavedStyles();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -46,8 +51,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
-  // Updated method to handle image picking
-  Future<void> _pickImage(ImageSource source) async {
+  // Updated method to handle image picking and navigate with optional style
+  Future<void> _pickImageAndNavigate({
+    required ImageSource source,
+    SavedStyle? styleToApply, // Optional style
+  }) async {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
@@ -56,47 +64,42 @@ class _DashboardScreenState extends State<DashboardScreen>
         imageQuality: 90,
       );
 
-      if (pickedFile == null) {
-        // User canceled the picker
-        return;
+      if (pickedFile == null || !mounted) return;
+
+      setState(
+        () => _isLoadingImages = true,
+      ); // Use general loading flag or add a new one
+
+      final String pickedPath = pickedFile.path;
+
+      setState(() => _isLoadingImages = false);
+
+      printDebug('📷 Picked image path: $pickedPath');
+      if (styleToApply != null) {
+        printDebug('🎨 Applying style: ${styleToApply.name}');
       }
 
       if (!mounted) return;
 
-      // Show loading indicator
-      setState(() {
-        _isLoadingImages = true;
-      });
-
-      // Get the picked image path - but don't copy it yet
-      final String pickedPath = pickedFile.path;
-
-      setState(() {
-        _isLoadingImages = false;
-      });
-
-      // Debug
-      printDebug('📷 Picked image path: $pickedPath');
-
-      if (!mounted) return;
-
-      // Navigate to EditScreen with the temporary path and isTemporaryPath flag
       Navigator.push(
         context,
         MaterialPageRoute(
           builder:
-              (context) => EditScreen(imageUrl: pickedPath, previousPrompt: ''),
+              (context) => EditScreen(
+                imageUrl: pickedPath,
+                previousPrompt: '',
+                initialStyle: styleToApply, // Pass the style here
+              ),
         ),
-      ).then((_) => _loadSavedImages()); // Refresh the list when returning
+      ).then((_) {
+        // Refresh both lists when returning
+        _loadSavedImages();
+        _loadSavedStyles(); // Refresh styles as well
+      });
     } catch (e) {
-      // Show error if something goes wrong
       if (!mounted) return;
       printDebug('❌ Error picking image: $e');
-
-      setState(() {
-        _isLoadingImages = false;
-      });
-
+      setState(() => _isLoadingImages = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
@@ -122,19 +125,40 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  // Method to show image source selection dialog
-  void _showImageSourceDialog() {
+  // Load saved styles
+  Future<void> _loadSavedStyles() async {
+    setState(() => _isLoadingStyles = true);
+    try {
+      final styles = await StorageService.getSavedStyles();
+      if (mounted) {
+        setState(() {
+          _savedStyles = styles;
+          _isLoadingStyles = false;
+        });
+      }
+    } catch (e) {
+      printDebug('❌ Error loading saved styles: $e');
+      if (mounted) {
+        setState(() => _isLoadingStyles = false);
+      }
+    }
+  }
+
+  // Method to show image source selection dialog, now accepts optional style
+  void _showImageSourceDialog({SavedStyle? styleToApply}) {
     FlexibleDialog.showImageSource(
       context: context,
       onSourceSelected: (source) {
-        if (source == ImageSource.camera) {
-          _pickImage(ImageSource.camera);
-        } else {
-          _pickImage(ImageSource.gallery);
-        }
+        _pickImageAndNavigate(source: source, styleToApply: styleToApply);
       },
-      title: 'Select Image Source',
-      message: 'Choose how you want to upload your image',
+      title:
+          styleToApply != null
+              ? 'Select Image for Style "${styleToApply.name}"'
+              : 'Select Image Source',
+      message:
+          styleToApply != null
+              ? 'Choose an image to apply the selected style to.'
+              : 'Choose how you want to upload your image',
     );
   }
 
@@ -194,6 +218,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 10),
 
                         _buildHorizontalFeaturesList(context),
+
+                        const SizedBox(height: 25),
+
+                        // Saved Styles Section
+                        _buildSectionHeader(
+                          'Saved Styles',
+                          Icons.style,
+                          onActionPressed: () {
+                            // Add action to navigate
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const StylesScreen(),
+                              ),
+                            ).then(
+                              (_) => _loadSavedStyles(),
+                            ); // Refresh on return
+                          },
+                        ),
+                        const SizedBox(height: 10),
+
+                        _buildSavedStylesList(),
 
                         const SizedBox(height: 25),
 
@@ -287,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: GestureDetector(
-        onTap: _showImageSourceDialog,
+        onTap: () => _showImageSourceDialog(), // Call without style here
         child: Container(
           width: double.infinity,
           height: 100,
@@ -353,18 +399,22 @@ class _DashboardScreenState extends State<DashboardScreen>
             color: Colors.white.withValues(alpha: 0.9),
           ),
         ),
+        const Spacer(), // Add Spacer to push the button to the end
         if (onActionPressed != null)
           Padding(
-            padding: const EdgeInsets.only(right: 20),
+            padding: const EdgeInsets.only(
+              right: 12,
+            ), // Adjust padding if needed
             child: IconButton(
               icon: Icon(
-                Icons.arrow_forward,
+                Icons.arrow_forward_ios, // Use iOS style arrow
                 color: Colors.white.withValues(alpha: 0.9),
-                size: 20,
+                size: 18, // Slightly smaller arrow
               ),
               onPressed: onActionPressed,
               tooltip: 'View all',
               constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8), // Add padding for tap area
             ),
           ),
       ],
@@ -432,6 +482,125 @@ class _DashboardScreenState extends State<DashboardScreen>
       ],
     );
   }
+
+  // --- New Widget for Saved Styles List ---
+  Widget _buildSavedStylesList() {
+    if (_isLoadingStyles) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_savedStyles.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+        child: Center(
+          child: Text(
+            'No saved styles yet. Save styles from the edit screen.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+          ),
+        ),
+      );
+    }
+
+    // Limit the number of styles shown horizontally
+    final displayedStyles = _savedStyles.take(20).toList();
+
+    // Horizontal scrolling list similar to recently edited
+    return SizedBox(
+      height: 110, // Adjust height for style cards
+      child: ShaderMask(
+        // ... (same shader as recently edited) ...
+        shaderCallback: (bounds) {
+          return LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.0),
+              Colors.white,
+              Colors.white,
+              Colors.white.withValues(alpha: 0.0),
+            ],
+            stops: const [0.0, 0.05, 0.95, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          scrollDirection: Axis.horizontal,
+          itemCount: displayedStyles.length, // Use limited list
+          itemBuilder: (context, index) {
+            final style = displayedStyles[index]; // Use limited list
+            return _buildStyleCard(style);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStyleCard(SavedStyle style) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to the StylesScreen, optionally passing the ID to pre-select
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => StylesScreen()),
+        ).then((_) => _loadSavedStyles()); // Refresh on return
+      },
+      child: Container(
+        width: 150, // Adjust width
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withValues(alpha: 0.1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 5,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.style, size: 20, color: Colors.blueAccent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    style.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(), // Pushes timestamp to bottom
+            Text(
+              DateFormat('MMM dd, h:mma').format(style.timestamp.toLocal()),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // --- End Saved Styles Widget ---
 
   void _showImageSourceWithPrompt(AdvancedPrompt prompt) {
     FlexibleDialog.showCustomDialog(

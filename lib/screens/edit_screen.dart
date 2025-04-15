@@ -5,22 +5,27 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:image_app/components/glass_button.dart';
 import 'package:image_app/components/flexible_dialog.dart';
+import 'package:image_app/models/saved_style.dart';
 import 'package:image_app/screens/prompts_screen.dart';
 import 'package:image_app/screens/image_viewer.dart';
 import 'package:image_app/screens/result_screen.dart';
 import 'package:image_app/services/gemini_api_service.dart';
 import 'package:image_app/services/storage_service.dart';
 import 'package:image_app/config/advanced_prompts.dart';
+import 'package:image_app/utils/log.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:image_app/screens/styles_screen.dart'; // Import StylesScreen
 
 class EditScreen extends StatefulWidget {
   final String imageUrl;
   final String previousPrompt;
+  final SavedStyle? initialStyle; // Optional initial style to apply
 
   const EditScreen({
     super.key,
     required this.imageUrl,
     this.previousPrompt = '',
+    this.initialStyle,
   });
 
   @override
@@ -48,7 +53,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   bool _isBottomSheetExpanded = true;
   final double _collapsedBottomSheetHeight =
       70.0; // Slightly reduced height when collapsed
-  final double _expandedBottomSheetHeight = 320.0; // Height when expanded
+  final double _expandedBottomSheetHeight = 400.0; // Slightly increased height
   late AnimationController _bottomSheetAnimationController;
   late Animation<double> _bottomSheetHeightAnimation;
 
@@ -63,12 +68,17 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   // Suggestions with icons
   final List<AdvancedPrompt> _suggestions = advancedPrompts;
 
+  bool _isSavingStyle = false; // Loading indicator for saving style
+  SavedStyle? _appliedStyle; // Currently applied style for the next edit
+  List<SavedStyle> _availableStyles = []; // List of saved styles
+
   @override
   void initState() {
     super.initState();
     if (widget.previousPrompt.isNotEmpty) {
       _promptController.text = widget.previousPrompt;
     }
+    _appliedStyle = widget.initialStyle; // Set initial style if provided
 
     // Initialize animation controller for image transitions
     _animationController = AnimationController(
@@ -89,7 +99,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     // Animation for bottom sheet height
     _bottomSheetHeightAnimation = Tween<double>(
       begin: _collapsedBottomSheetHeight,
-      end: _expandedBottomSheetHeight,
+      end: _expandedBottomSheetHeight, // Use updated height
     ).animate(
       CurvedAnimation(
         parent: _bottomSheetAnimationController,
@@ -103,6 +113,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     _bottomSheetAnimationController.value = 1.0;
 
     _loadOriginalImage();
+    _loadAvailableStyles(); // Load styles when screen initializes
   }
 
   @override
@@ -150,6 +161,21 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     }
   }
 
+  // Load available saved styles
+  Future<void> _loadAvailableStyles() async {
+    try {
+      final styles = await StorageService.getSavedStyles();
+      if (mounted) {
+        setState(() {
+          _availableStyles = styles;
+        });
+      }
+    } catch (e) {
+      printDebug("Error loading saved styles: $e");
+      // Optionally show an error message
+    }
+  }
+
   // Get current image bytes based on selected index
   Uint8List _getCurrentImageBytes() {
     if (_currentEditIndex >= 0 && _currentEditIndex < _editHistory.length) {
@@ -188,7 +214,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       final base64GeneratedImage = await GeminiApiService.editImage(
         imageData: sourceImageBytes,
         prompt: formattedPrompt,
-        // model: _selectedAIModel, // TODO: Pass the selected model
+        styleJson: _appliedStyle?.styleJson, // Pass the style JSON here
       );
 
       // Convert base64 back to image bytes
@@ -203,10 +229,13 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
           'prompt': _promptController.text,
           'imageBytes': generatedImageBytes,
           'timestamp': DateTime.now(),
+          'styleUsed': _appliedStyle?.name, // Optionally track style used
         });
         _currentEditIndex = _editHistory.length - 1;
         _isLoading = false;
         _promptController.clear();
+        // Optionally clear the applied style after use, or keep it for next edit
+        // _appliedStyle = null;
       });
     } catch (e) {
       setState(() {
@@ -264,6 +293,117 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       });
     }
   }
+
+  // --- Style Management Methods ---
+
+  /// Generates and saves the style of the current image
+  Future<void> _saveStyle() async {
+    if (_isSavingStyle) return; // Prevent double taps
+
+    final Uint8List imageToAnalyze = _getCurrentImageBytes();
+
+    setState(() {
+      _isSavingStyle = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. Generate style description
+      final String styleJson = await GeminiApiService.generateStyleDescription(
+        imageData: imageToAnalyze,
+      );
+
+      if (!mounted) return;
+
+      // 2. Prompt user for a name
+      final String? styleName = await _promptForStyleName();
+
+      if (styleName == null || styleName.trim().isEmpty) {
+        setState(() => _isSavingStyle = false);
+        return; // User cancelled or entered empty name
+      }
+
+      // 3. Create SavedStyle object
+      final newStyle = SavedStyle.create(
+        name: styleName.trim(),
+        styleJson: styleJson,
+      );
+
+      // 4. Save using StorageService
+      await StorageService.saveStyle(newStyle);
+
+      // 5. Refresh available styles and provide feedback
+      await _loadAvailableStyles();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Style "${newStyle.name}" saved successfully!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _isSavingStyle = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to save style: $e';
+          _isSavingStyle = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving style: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Shows a dialog to prompt the user for a style name
+  Future<String?> _promptForStyleName() async {
+    final TextEditingController nameController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Save Style As'),
+            content: TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Enter style name'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, nameController.text),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Helper method to apply a style and update state/UI
+  void _applyStyle(SavedStyle style) {
+    setState(() {
+      _appliedStyle = style;
+      _errorMessage = null; // Clear previous errors
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Style "${style.name}" selected. It will be applied to the next edit.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // --- End Style Management Methods ---
 
   // Smooth toggle for bottom sheet with proper animations
   void _toggleBottomSheet() {
@@ -978,21 +1118,30 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         ),
 
         // Scrollable content area
-        Expanded(child: _buildScrollableContent()),
-
-        // Action buttons at bottom
+        Expanded(child: _buildScrollableContent()), // Takes available space
+        // Action buttons at bottom (only main actions)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-          child: SizedBox(
-            height: 40,
-            child:
-                _editHistory.isEmpty
-                    ? _buildPrimaryButton(
-                      text: 'Generate Edit',
-                      onPressed: _saveCurrentEdit,
-                      icon: Icons.auto_fix_high,
-                    )
-                    : _buildActionButtonRow(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Show applied style info if any
+              if (_appliedStyle != null) _buildAppliedStyleIndicator(),
+              const SizedBox(height: 8),
+              // Row for main action buttons
+              SizedBox(
+                height: 40,
+                child:
+                    _editHistory.isEmpty
+                        ? _buildPrimaryButton(
+                          text: 'Generate Edit',
+                          onPressed: _saveCurrentEdit,
+                          icon: Icons.auto_fix_high,
+                        )
+                        : _buildActionButtonRow(),
+              ),
+              // Removed style buttons from here
+            ],
           ),
         ),
       ],
@@ -1018,6 +1167,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildScrollableContent() {
+    // Add applied style indicator inside scrollable area if preferred
     return ShaderMask(
       shaderCallback: (Rect bounds) {
         return LinearGradient(
@@ -1037,7 +1187,6 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(14),
         child: Column(
-          spacing: 20,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_editHistory.isNotEmpty) _buildEditNumberIndicator(),
@@ -1046,10 +1195,50 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
             _buildModelSelector(),
             Divider(color: Colors.white.withValues(alpha: 0.2)),
             _buildAdvancedEditingSection(),
+            _buildStyleSection(),
             _buildAdvancedOptionsToggle(),
             if (_showAdvancedOptions) _buildAdvancedOptionsContent(),
-          ],
+          ].separate(15), // Use spacing extension
         ),
+      ),
+    );
+  }
+
+  // Indicator for the currently applied style
+  Widget _buildAppliedStyleIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.blueAccent.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.style, size: 16, color: Colors.blueAccent),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Applying Style: "${_appliedStyle!.name}"',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => setState(() => _appliedStyle = null),
+            customBorder: CircleBorder(),
+            child: Icon(
+              Icons.close,
+              size: 16,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1170,6 +1359,176 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildStyleSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          // Header Row
+          children: [
+            _buildSectionHeader(
+              icon: Icons.style_outlined,
+              text: 'Image Style (exp.)',
+              iconColor: Colors.blueAccent,
+            ),
+            const Spacer(),
+            TextButton(
+              // View All Button
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const StylesScreen()),
+                ).then(
+                  (_) => _loadAvailableStyles(),
+                ); // Refresh styles on return
+              },
+              child: Row(
+                children: [
+                  Text(
+                    'View All',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100, // Adjust height as needed
+          child: _buildHorizontalScrollableList(
+            // +1 for the "Create New" card
+            itemCount: _availableStyles.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // First item is "Create New Style"
+                return _buildCreateStyleCard();
+              } else {
+                // Subsequent items are saved styles
+                final style = _availableStyles[index - 1];
+                return _buildSavedStyleCard(style);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Card for creating a new style
+  Widget _buildCreateStyleCard() {
+    return GestureDetector(
+      onTap: _isSavingStyle ? null : _saveStyle, // Trigger save style action
+      child: Container(
+        width: 110,
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.greenAccent.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _isSavingStyle
+                ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.greenAccent,
+                  ),
+                )
+                : Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.greenAccent,
+                  size: 22,
+                ),
+            const SizedBox(height: 8),
+            Text(
+              'Save as style',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card representing a saved style in the horizontal list
+  Widget _buildSavedStyleCard(SavedStyle style) {
+    bool isApplied = _appliedStyle?.id == style.id;
+    return GestureDetector(
+      onTap: () => _applyStyle(style), // Apply this style on tap
+      child: Container(
+        width: 110,
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(
+            alpha: isApplied ? 0.2 : 0.1,
+          ), // Highlight if applied
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color:
+                isApplied
+                    ? Colors.blueAccent
+                    : Colors.blueAccent.withValues(alpha: 0.4),
+            width: isApplied ? 2.0 : 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isApplied
+                  ? Icons.check_circle
+                  : Icons.style, // Show check if applied
+              color: Colors.blueAccent,
+              size: 22,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              style.name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Removed _buildStyleActionCard as it's replaced by the above two methods
+
+  // --- End Style Section ---
+
   Widget _buildAdvancedEditingSection() {
     final displayedPrompts = _suggestions.take(10).toList();
 
@@ -1202,6 +1561,7 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
+                  SizedBox(width: 4),
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 14,
@@ -1236,11 +1596,14 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       children: [
         Icon(icon, color: iconColor ?? Colors.white.withValues(alpha: 0.8)),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 15,
-            color: Colors.white.withValues(alpha: 0.9),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
         ),
       ],
@@ -1364,8 +1727,6 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(
-          spacing: 10,
-          mainAxisSize: MainAxisSize.min,
           children: [
             _buildOptionContainer(child: _buildEnhancedThinkingToggle()),
             _buildOptionContainer(child: _buildTemperatureControl()),
@@ -1510,6 +1871,8 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Removed _buildStyleActionButtons() as it's replaced by the new section
+
   Widget _buildPrimaryButton({
     required String text,
     required VoidCallback onPressed,
@@ -1527,5 +1890,18 @@ class _EditScreenState extends State<EditScreen> with TickerProviderStateMixin {
       iconSize: iconSize,
       textColor: Colors.white,
     );
+  }
+}
+
+// Helper extension for adding spacing between widgets in a Column
+extension SpacingExtension on List<Widget> {
+  List<Widget> separate(double spacing) {
+    if (isEmpty) return this;
+    List<Widget> result = [first];
+    for (int i = 1; i < length; i++) {
+      result.add(SizedBox(height: spacing));
+      result.add(this[i]);
+    }
+    return result;
   }
 }

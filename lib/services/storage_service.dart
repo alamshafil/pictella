@@ -7,9 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
+import 'package:image_app/models/saved_style.dart';
 
 class StorageService {
   static const String _editedImagesKey = 'edited_images';
+  static const String _savedStylesKey = 'saved_styles';
   static final Uuid _uuid = Uuid();
   static const String _imagesSubdirectory = 'edited_images';
   static const String _originalImagesSubdirectory = 'original_images';
@@ -431,6 +433,124 @@ class StorageService {
       };
     } catch (e) {
       return {'status': 'error', 'message': 'Error validating storage: $e'};
+    }
+  }
+
+  // --- Saved Styles Management ---
+
+  /// Save a new style or update an existing one by ID
+  static Future<void> saveStyle(SavedStyle style) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingData = prefs.getStringList(_savedStylesKey) ?? [];
+      final List<SavedStyle> styles =
+          existingData
+              .map(
+                (jsonString) => SavedStyle.fromJson(
+                  jsonDecode(jsonString) as Map<String, dynamic>,
+                ),
+              )
+              .toList();
+
+      // Check if style with the same ID already exists to update it
+      final index = styles.indexWhere((s) => s.id == style.id);
+      if (index != -1) {
+        styles[index] = style; // Update existing
+      } else {
+        styles.add(style); // Add new
+      }
+
+      // Convert back to list of JSON strings
+      final updatedData = styles.map((s) => jsonEncode(s.toJson())).toList();
+      await prefs.setStringList(_savedStylesKey, updatedData);
+
+      printDebug('💾 Saved/Updated style: ${style.name} (ID: ${style.id})');
+    } catch (e) {
+      printDebug('❌ Error saving style: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all saved styles, sorted by most recent
+  static Future<List<SavedStyle>> getSavedStyles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getStringList(_savedStylesKey) ?? [];
+
+      final styles =
+          data
+              .map(
+                (jsonString) => SavedStyle.fromJson(
+                  jsonDecode(jsonString) as Map<String, dynamic>,
+                ),
+              )
+              .toList()
+            ..sort(
+              (a, b) => b.timestamp.compareTo(a.timestamp),
+            ); // Sort newest first
+
+      printDebug('📋 Retrieved ${styles.length} saved styles');
+      return styles;
+    } catch (e) {
+      printDebug('❌ Error retrieving saved styles: $e');
+      return [];
+    }
+  }
+
+  /// Get a specific style by its ID
+  static Future<SavedStyle?> getStyleById(String id) async {
+    try {
+      final styles = await getSavedStyles();
+      return styles.firstWhere((style) => style.id == id);
+    } catch (e) {
+      // Use a more specific catch if needed, e.g., StateError if not found
+      printDebug('⚠️ Style with ID $id not found or error: $e');
+      return null;
+    }
+  }
+
+  /// Delete a style by its ID
+  static Future<bool> deleteStyle(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingData = prefs.getStringList(_savedStylesKey) ?? [];
+      final styles =
+          existingData
+              .map(
+                (jsonString) => SavedStyle.fromJson(
+                  jsonDecode(jsonString) as Map<String, dynamic>,
+                ),
+              )
+              .toList();
+
+      final initialLength = styles.length;
+      styles.removeWhere((style) => style.id == id);
+
+      if (styles.length < initialLength) {
+        final updatedData = styles.map((s) => jsonEncode(s.toJson())).toList();
+        await prefs.setStringList(_savedStylesKey, updatedData);
+        printDebug('🗑️ Deleted style with ID: $id');
+        return true;
+      } else {
+        printDebug('⚠️ Style with ID $id not found for deletion.');
+        return false;
+      }
+    } catch (e) {
+      printDebug('❌ Error deleting style: $e');
+      return false;
+    }
+  }
+
+  /// Delete all saved styles
+  static Future<bool> deleteAllStyles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_savedStylesKey);
+      printDebug('🧹 Cleared all saved styles.');
+      return true;
+    } catch (e) {
+      printDebug('❌ Error deleting all styles: $e');
+      return false;
     }
   }
 }

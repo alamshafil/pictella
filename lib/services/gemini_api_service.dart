@@ -13,14 +13,18 @@ class GeminiApiService {
       'https://generativelanguage.googleapis.com/v1beta/models';
   static const String _modelName = 'gemini-2.0-flash-exp';
 
-  // Method to edit an image with a text prompt
+  // Method to edit an image with a text prompt and optional style
   static Future<String> editImage({
     required Uint8List imageData,
     required String prompt,
+    String? styleJson, // Optional style description
   }) async {
     try {
-      _logInfo('🚀 Starting API request to Gemini');
+      _logInfo('🚀 Starting API request to Gemini (Edit Image)');
       _logInfo('📝 Prompt: $prompt');
+      if (styleJson != null) {
+        _logInfo('🎨 Applying Style JSON: ${_truncateString(styleJson, 100)}');
+      }
       _logInfo('🖼️ Image size: ${imageData.length} bytes');
 
       // Get the API key
@@ -46,15 +50,20 @@ class GeminiApiService {
       final String base64Image = base64Encode(processedImageData);
       _logInfo('✓ Image converted to base64');
 
-      final newPrompt =
-          "Can you update the attached image based on the following prompt?\n$prompt";
+      // Construct the prompt, incorporating the style if provided
+      String combinedPrompt =
+          "Update the attached image based on the following prompt: \"$prompt\".";
+      if (styleJson != null && styleJson.isNotEmpty) {
+        combinedPrompt +=
+            "\n\nApply the visual style described by this JSON object: $styleJson";
+      }
 
       // Prepare the request body
       final requestBody = {
         'contents': [
           {
             'parts': [
-              {'text': newPrompt},
+              {'text': combinedPrompt}, // Use the combined prompt
               {
                 'inline_data': {'mime_type': 'image/jpeg', 'data': base64Image},
               },
@@ -66,8 +75,9 @@ class GeminiApiService {
         },
       };
 
-      _logInfo('📤 REST API body:\n $requestBody');
-
+      _logInfo(
+        '📤 REST API body:\n ${_truncateString(jsonEncode(requestBody))}',
+      );
       _logInfo('📤 Sending request to $_baseUrl/$_modelName:generateContent');
 
       // Make the API call
@@ -151,7 +161,135 @@ class GeminiApiService {
         }
       }
     } catch (e) {
-      _logError('❌ Exception during API call: $e');
+      _logError('❌ Exception during API call (editImage): $e');
+      rethrow;
+    }
+  }
+
+  /// Generates a JSON description of the image's style.
+  static Future<String> generateStyleDescription({
+    required Uint8List imageData,
+  }) async {
+    try {
+      _logInfo(
+        '🎨 Starting API request to Gemini (Generate Style Description)',
+      );
+      _logInfo('🖼️ Image size: ${imageData.length} bytes');
+
+      final apiKey = await ApiConfig.getGeminiApiKey();
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('No API key found.');
+      }
+
+      // Resize if needed (optional, but good for consistency/cost)
+      Uint8List processedImageData = await resizeImageIfNeeded(
+        imageData,
+        maxDimension:
+            512, // Smaller dimension might be sufficient for style analysis
+      );
+      _logInfo(
+        '✓ Resized image for style analysis to ${processedImageData.length} bytes',
+      );
+
+      final String base64Image = base64Encode(processedImageData);
+      _logInfo('✓ Image converted to base64');
+
+      // Prompt asking for JSON style description
+      const String stylePrompt = """
+Analyze the attached image and describe its visual style in JSON format.
+
+Provide ONLY the JSON object as your response.
+
+This JSON will be sent to an AI image generator to generate a new image based on style from JSON.
+
+""";
+
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {'text': stylePrompt},
+              {
+                'inline_data': {'mime_type': 'image/jpeg', 'data': base64Image},
+              },
+            ],
+          },
+        ],
+        'generation_config': {
+          // Ensure JSON output if the model supports it directly, otherwise rely on prompt
+          // 'response_mime_type': 'application/json', // Uncomment if model supports direct JSON output
+        },
+        // Safety settings might need adjustment if style descriptions get blocked
+        // 'safety_settings': [ ... ]
+      };
+
+      _logInfo('📤 Sending request for style description...');
+      _logDebug('Style Request Body: ${jsonEncode(requestBody)}');
+
+      // Use a model potentially better suited for analysis if available, like gemini-pro-vision
+      // For now, using the same model.
+      final response = await http.post(
+        Uri.parse('$_baseUrl/$_modelName:generateContent?key=$apiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      _logInfo(
+        '📥 Received style response with status: ${response.statusCode}',
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        _logDebug('Full style response: ${_truncateString(response.body)}');
+
+        // Extract the text part containing the JSON
+        try {
+          final candidates = jsonResponse['candidates'];
+          if (candidates == null || candidates.isEmpty) {
+            throw Exception('No candidates in style response');
+          }
+          final parts = candidates[0]['content']['parts'];
+          if (parts == null || parts.isEmpty || parts[0]['text'] == null) {
+            throw Exception('No text part found in style response');
+          }
+
+          String styleJsonText = parts[0]['text'];
+
+          // Clean up potential markdown code fences
+          styleJsonText =
+              styleJsonText
+                  .replaceAll('```json', '')
+                  .replaceAll('```', '')
+                  .trim();
+
+          // Validate if it's valid JSON (basic check)
+          try {
+            jsonDecode(styleJsonText);
+            _logInfo('✓ Successfully extracted style JSON description.');
+            return styleJsonText;
+          } catch (jsonError) {
+            _logError('❌ Extracted text is not valid JSON: $jsonError');
+            _logError('Raw text received: $styleJsonText');
+            throw Exception('Generated style description is not valid JSON.');
+          }
+        } catch (e) {
+          _logError('❌ Error extracting style JSON from response: $e');
+          _logDebug(
+            'Response structure: ${_mapResponseStructure(jsonResponse)}',
+          );
+          throw Exception('Failed to extract style JSON from response: $e');
+        }
+      } else {
+        _logError(
+          '❌ Style generation API request failed: ${response.statusCode}',
+        );
+        _logError('Error response body: ${response.body}');
+        throw Exception(
+          'Style generation failed: ${response.statusCode}, ${response.body}',
+        );
+      }
+    } catch (e) {
+      _logError('❌ Exception during style generation: $e');
       rethrow;
     }
   }
